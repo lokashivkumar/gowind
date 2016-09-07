@@ -1,4 +1,32 @@
 <resources>
     <string name="app_name">GoWind</string>
     <string name="title_activity_maps">Map</string>
+    <string name="title_activity_login">Sign in</string>
+
+    <!-- Strings related to login -->
+    <string name="prompt_email">Email</string>
+    <string name="prompt_password">Password (optional)</string>
+    <string name="action_sign_in">Sign in or register</string>
+    <string name="action_sign_in_short">Sign in</string>
+    <string name="error_invalid_email">This email address is invalid</string>
+    <string name="error_invalid_password">This password is too short</string>
+    <string name="error_incorrect_password">This password is incorrect</string>
+    <string name="error_field_required">This field is required</string>
+    <string name="permission_rationale">"Contacts permissions are needed for providing email
+        completions."
+    </string>
+
+    <string name="sample_about_me">I am very adventurous and love tripping.</string>
+    <string name="sample_username">John Doe</string>
+    <string name="userBirthday">June 14 1988</string>
+    <string name="userGender">Male</string>
+    <string name="userEmail">john.doe@samplemail.com</string>
+    <string name="userPhoneNumber">(333) 222-0000</string>
+    <string name="phoneNumberLabel">Phone:</string>
+    <string name="emailLabel">E-mail:</string>
+    <string name="genderLabel">Gender:</string>
+    <string name="userBirthdayLabel">Birthday:</string>
+    <string name="userAboutMeLabel">About Me:</string>
+    <string name="userCurrentProfilePicture">user current profile picture</string>
+    <string name="user_profile_desc">User Profile image</string>
 </resources>

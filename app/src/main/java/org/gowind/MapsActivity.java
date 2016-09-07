@@ -1,16 +1,9 @@
 package org.gowind;
 
-import android.*;
 import android.Manifest;
-import android.content.ComponentName;
-import android.content.Context;
-import android.content.Intent;
-import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.location.Address;
 import android.location.Location;
-import android.location.LocationListener;
-import android.location.LocationManager;
-import android.os.IBinder;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
@@ -18,12 +11,18 @@ import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
 import android.widget.Button;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.LocationListener;
+import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -32,33 +31,37 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
+import org.gowind.api.LocationAddress;
 
-    //, GoogleApiClient.OnConnectionFailedListener, GoogleApiClient.ConnectionCallbacks {
+import java.util.ArrayList;
+import java.util.List;
 
+public class MapsActivity extends FragmentActivity implements OnMapReadyCallback,
+        GoogleApiClient.OnConnectionFailedListener, GoogleApiClient.ConnectionCallbacks, LocationListener, AdapterView.OnItemClickListener, AdapterView.OnItemSelectedListener {
+
+    private static final String LOGTAG = "Gowind-MapsActivity";
     private static final int MAP_LOCATION_CONSTANT = 12;
     private GoogleMap mMap;
     private Button requestButton;
     private TextView titleText;
-    private TextView currentLocation;
-    boolean mBounded;
+    private AutoCompleteTextView locationDropDown;
+    GoogleApiClient mGoogleApiClient;
+    private LocationRequest mLocationRequest;
+    private Location mCurrentUserLocation;
+    private boolean isMapReady;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
-        LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-       // CurrentLocationFinder locationListener = new CurrentLocationFinder();
-       // locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return;
+
+        // Create an instance of GoogleAPIClient.
+        if (mGoogleApiClient == null) {
+            mGoogleApiClient = new GoogleApiClient.Builder(this)
+                    .addConnectionCallbacks(this)
+                    .addOnConnectionFailedListener(this)
+                    .addApi(LocationServices.API)
+                    .build();
         }
 
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
@@ -66,8 +69,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
-        titleText = (TextView) findViewById(R.id.appTitle);
-        currentLocation = (TextView) findViewById(R.id.currentLocation);
+        locationDropDown = (AutoCompleteTextView) findViewById(R.id.locationDropDown);
+        locationDropDown.setOnItemSelectedListener(this);
         requestButton = (Button) findViewById(R.id.requestButton);
 
         requestButton.setOnClickListener(new View.OnClickListener() {
@@ -81,12 +84,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     protected void onStart() {
         super.onStart();
+        mGoogleApiClient.connect();
     }
-
 
 
     @Override
     protected void onStop() {
+        mGoogleApiClient.disconnect();
+        Log.e(LOGTAG, "Disconnected from Google Locaiton services");
         super.onStop();
     }
 
@@ -101,12 +106,111 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
      */
     @Override
     public void onMapReady(GoogleMap googleMap) {
-
+        isMapReady = true;
         mMap = googleMap;
-        LatLng sydney = new LatLng(12.133, 12.144);
-        // Add a marker in Sydney and move the camera
-        //LatLng currLocation = new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude());
-        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
+    }
+
+    @Override
+    public void onConnected(@Nullable Bundle bundle) {
+        Log.i(LOGTAG, "Successfully connected to the Google Location Services API");
+        mLocationRequest = new LocationRequest()
+                .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
+                .setInterval(10000);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return;
+        }
+
+        //Getting current user location.
+        Location lastUserLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+        LocationAddress currentAddress = new LocationAddress();
+
+        LatLng lastLoc = new LatLng(lastUserLocation.getLatitude(), lastUserLocation.getLongitude());
+
+        //Updating the map with a marker when ready.
+        if (isMapReady) {
+            mMap.addMarker(new MarkerOptions().position(lastLoc));
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(lastLoc));
+        }
+
+        List<Address> addressList = currentAddress.getAddressFromLocation(this, lastUserLocation);
+        if (addressList.size() != 0) {
+            String userLocation = getAddressAsString(addressList.get(0));
+            locationDropDown.setText(userLocation);
+        }
+        LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
+    }
+
+    @Override
+    public void onConnectionSuspended(int i) {
+        Log.w(LOGTAG, "A previous connection was suspended, reconnecting.");
+    }
+
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+        Log.e(LOGTAG, "Connection to Google Location Services Failed.");
+    }
+
+    @Override
+    public void onLocationChanged(Location location) {
+        LocationAddress locAddress = new LocationAddress();
+        List<Address> addressList = locAddress.getAddressFromLocation(this, location);
+        List<String> stringAddresses = new ArrayList<>();
+
+        for (Address address : addressList) {
+            stringAddresses.add(getAddressAsString(address));
+        }
+
+        if (stringAddresses.size() != 0) {
+            Log.i(LOGTAG, "Location changed to: " + stringAddresses.get(0));
+        }
+//        if (isMapReady) {
+//            mMap.addMarker(new MarkerOptions().position(new LatLng(location.getLatitude(),
+//                    location.getLongitude())).title("Marker in " + location.getLatitude()));
+//        }
+//        ArrayAdapter<String> autCompleteTextViewAdapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, stringAddresses);
+//        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+//        locationDropDown.setAdapter(spinnerAdapter);
+    }
+
+    @Override
+    public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+
+    }
+
+    @Override
+    public void onNothingSelected(AdapterView<?> parent) {
+
+    }
+
+    @Override
+    public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+
+    }
+
+    /**
+     * Helper method to convert a given Address Object to String -
+     * returns Location, city, state, feature name, country code, postal code.
+     * @param address
+     * @return
+     */
+    private String getAddressAsString(Address address) {
+
+        StringBuffer sb = new StringBuffer();
+        sb.append(address.getFeatureName()).append(" ")
+                .append(address.getAddressLine(0)).append(" ")
+                .append(address.getLocality()).append(" ")
+                .append(address.getAdminArea()).append(" ")
+                .append(address.getLocality()).append(" ")
+                .append(address.getCountryCode()).append(" ")
+                .append(address.getPostalCode());
+
+        return sb.toString();
     }
 }
