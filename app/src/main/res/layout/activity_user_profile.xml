@@ -28,6 +28,25 @@
                 android:src="@mipmap/ic_launcher"
                 android:contentDescription="@string/user_profile_desc" />
 
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@+id/thumbnail"
+                android:id="@+id/userNameBlock"
+                android:orientation="horizontal"
+                android:paddingLeft="15dp"
+                android:paddingTop="5dp"
+                android:paddingBottom="5dp"
+                android:paddingRight="15dp">
+
+            <ImageView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:src="@drawable/person_black"
+                android:layout_weight="1"
+                android:layout_marginEnd="5dp"
+                android:paddingTop="8dp"/>
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -35,18 +54,28 @@
                 android:text="@string/sample_username"
                 android:ems="10"
                 android:maxLines="1"
-                android:padding="8dp"
                 android:id="@+id/userName"
                 android:textColor="#666"
                 android:layout_below="@+id/thumbnail"
                 android:layout_alignParentStart="true"
                 android:textStyle="bold"
-                android:textSize="24sp" />
+                android:textSize="24sp"
+                android:paddingLeft="5dp"
+                android:paddingTop="5dp"
+                android:paddingRight="5dp"
+                android:paddingBottom="5dp"/>
+
+            </LinearLayout>
+
+            <Space
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_below="@+id/userName"
+                android:layout_below="@+id/userNameBlock"
                 android:id="@+id/userEmailBlock"
                 android:orientation="horizontal"
                 android:paddingLeft="15dp"
@@ -59,7 +88,8 @@
                     android:layout_height="wrap_content"
                     android:src="@drawable/email_icon"
                     android:layout_weight="1"
-                    android:layout_marginEnd="5dp"/>
+                    android:layout_marginEnd="5dp"
+                    />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -105,14 +135,13 @@
                     android:textColor="#666"
                     android:text="@string/userPhoneNumber"
                     android:layout_weight="2"
-                    android:paddingBottom="5dp"
                     android:background="@android:color/transparent"
+                    android:paddingBottom="5dp"
                     android:paddingTop="5dp"
                     android:paddingLeft="5dp"
                     android:paddingRight="5dp" />
             </LinearLayout>
 
         </RelativeLayout>
-
     </android.support.v7.widget.CardView>
 </LinearLayout>
