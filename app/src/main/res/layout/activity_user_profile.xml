@@ -91,7 +91,7 @@
                     android:layout_marginEnd="5dp"
                     />
 
-                <TextView
+                <EditText
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:maxLines="1"
@@ -141,6 +141,15 @@
                     android:paddingLeft="5dp"
                     android:paddingRight="5dp" />
             </LinearLayout>
+
+            <Button
+                android:text="Add Payment Method"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_below="@+id/phoneNumberBlock"
+                android:layout_centerHorizontal="true"
+                android:id="@+id/addPayment"
+                android:elevation="0dp" />
 
         </RelativeLayout>
     </android.support.v7.widget.CardView>

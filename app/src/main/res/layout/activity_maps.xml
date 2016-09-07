@@ -4,13 +4,22 @@
     android:layout_height="match_parent"
     tools:context=".MapsActivity" >
 
+    <android.support.v7.widget.Toolbar
+        android:id="@+id/my_toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="?attr/colorPrimary"
+        android:elevation="4dp"
+        android:theme="@style/ThemeOverlay.AppCompat.ActionBar"/>
 
     <AutoCompleteTextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:id="@+id/locationDropDown"
         android:dropDownWidth="match_parent"
-        android:animateLayoutChanges="true" />
+        android:layout_below="@+id/my_toolbar"
+        android:animateLayoutChanges="true"
+        android:maxLines="2"/>
 
     <fragment xmlns:android="http://schemas.android.com/apk/res/android"
         xmlns:map="http://schemas.android.com/apk/res-auto"

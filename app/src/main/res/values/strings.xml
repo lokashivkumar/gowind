@@ -29,4 +29,9 @@
     <string name="userAboutMeLabel">About Me:</string>
     <string name="userCurrentProfilePicture">user current profile picture</string>
     <string name="user_profile_desc">User Profile image</string>
+    <string name="com.stripe.publishable_key" translatable="false">pk_live_ncEruOe1mdkuFS2CDcXYaAJI</string>
+    <string name="user_menu">Menu</string>
+    <string name="settings">Settings</string>
+    <string name="update_profile">Update Profile</string>
+    <string name="add_payment">Add Payment Method</string>
 </resources>

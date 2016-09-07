@@ -1,24 +1,28 @@
 package org.gowind;
 
 import android.Manifest;
+import android.app.ActionBar;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Location;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
-import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
-import android.widget.Spinner;
-import android.widget.TextView;
 import android.widget.Toast;
 
+import com.crashlytics.android.Crashlytics;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationListener;
@@ -29,6 +33,7 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
+import io.fabric.sdk.android.Fabric;
 import com.google.android.gms.maps.model.MarkerOptions;
 
 import org.gowind.api.LocationAddress;
@@ -36,24 +41,31 @@ import org.gowind.api.LocationAddress;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback,
+
+public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback,
         GoogleApiClient.OnConnectionFailedListener, GoogleApiClient.ConnectionCallbacks, LocationListener, AdapterView.OnItemClickListener, AdapterView.OnItemSelectedListener {
 
     private static final String LOGTAG = "Gowind-MapsActivity";
     private static final int MAP_LOCATION_CONSTANT = 12;
     private GoogleMap mMap;
     private Button requestButton;
-    private TextView titleText;
     private AutoCompleteTextView locationDropDown;
     GoogleApiClient mGoogleApiClient;
     private LocationRequest mLocationRequest;
-    private Location mCurrentUserLocation;
     private boolean isMapReady;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Fabric.with(this, new Crashlytics());
         setContentView(R.layout.activity_maps);
+
+        //Setting up the action/toolbar
+        Toolbar myToolbar = (Toolbar) findViewById(R.id.my_toolbar);
+        setSupportActionBar(myToolbar);
+
+        android.support.v7.app.ActionBar ab = getSupportActionBar();
+        ab.setDisplayHomeAsUpEnabled(true);
 
         // Create an instance of GoogleAPIClient.
         if (mGoogleApiClient == null) {
@@ -79,6 +91,39 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 Toast.makeText(getApplicationContext(), "Your request has been created.", Toast.LENGTH_LONG).show();
             }
         });
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.profile_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.updateProfile:
+                // User chose the "Favorite" action, mark the current item
+                // as a favorite...
+                Log.i(LOGTAG, "User Menu selected");
+                Intent userProfileIntent = new Intent(MapsActivity.this, UserProfileActivity.class);
+                startActivity(userProfileIntent);
+                return true;
+
+            case R.id.addPayment:
+
+                Log.i(LOGTAG, "Add payment selected");
+                Intent userPaymentIntent = new Intent(MapsActivity.this, PaymentActivity.class);
+                startActivity(userPaymentIntent);
+                return true;
+
+            default:
+                // If we got here, the user's action was not recognized.
+                // Invoke the superclass to handle it.
+                return super.onOptionsItemSelected(item);
+
+        }
     }
 
     @Override
