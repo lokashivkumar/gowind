@@ -1,25 +1,78 @@
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".MapsActivity" >
+    tools:context=".MapsActivity"
+    android:weightSum="15"
+    android:orientation="vertical">
 
-    <android.support.v7.widget.Toolbar
-        android:id="@+id/my_toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="?attr/colorPrimary"
-        android:elevation="4dp"
-        android:theme="@style/ThemeOverlay.AppCompat.ActionBar"/>
 
-    <AutoCompleteTextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:id="@+id/locationDropDown"
-        android:dropDownWidth="match_parent"
-        android:layout_below="@+id/my_toolbar"
-        android:animateLayoutChanges="true"
-        android:maxLines="2"/>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentStart="true"
+            android:layout_weight="2"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:orientation="horizontal"
+                android:id="@+id/originLayout"
+                android:weightSum="7">
+
+                <ImageView
+                    android:layout_width="0dp"
+                    android:layout_height="12dp"
+                    android:src="@drawable/ic_green_origin_oval"
+                    android:layout_weight="1"
+                    android:layout_marginLeft="2dp"
+                    android:layout_marginTop="10dp" />
+
+                <AutoCompleteTextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/originAutoComplete"
+                    android:dropDownWidth="match_parent"
+                    android:animateLayoutChanges="true"
+                    android:maxLines="1"
+                    android:hint="Enter a location"
+                    android:layout_weight="6"
+                    android:padding="8dp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:orientation="horizontal"
+                android:id="@+id/destinationLayout"
+                android:layout_below="@+id/originLayout"
+                android:weightSum="7">
+
+                <ImageView
+                    android:layout_width="0dp"
+                    android:layout_height="12dp"
+                    android:src="@drawable/ic_red_destination_oval"
+                    android:layout_weight="1"
+                    android:layout_marginLeft="2dp"
+                    android:layout_marginTop="10dp" />
+
+                <AutoCompleteTextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/destinationAutoComplete"
+                    android:dropDownWidth="match_parent"
+                    android:animateLayoutChanges="true"
+                    android:maxLines="1"
+                    android:hint="Enter a destination"
+                    android:layout_weight="6"
+                    android:padding="8dp" />
+
+            </LinearLayout>
+        </LinearLayout>
 
     <fragment xmlns:android="http://schemas.android.com/apk/res/android"
         xmlns:map="http://schemas.android.com/apk/res-auto"
@@ -27,19 +80,53 @@
         android:id="@+id/map"
         android:name="com.google.android.gms.maps.SupportMapFragment"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="11"
         tools:context="org.gowind.MapsActivity"
-        android:layout_below="@+id/locationDropDown">
+        android:layout_below="@+id/destinationLayout">
     </fragment>
 
     <Button
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:id="@+id/requestButton"
         android:text="REQUEST"
         android:textSize="16sp"
         android:textAlignment="center"
-        android:layout_alignParentBottom="true"
-        />
+        android:background="@android:drawable/screen_background_light_transparent" />
 
-</RelativeLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:weightSum="3"
+        android:orientation="horizontal"
+        android:layout_alignParentBottom="true"
+        android:id="@+id/buttonPanel">
+
+        <ImageButton
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:src="@drawable/person_black"
+            android:layout_weight="1"
+            android:background="@android:drawable/screen_background_light_transparent"
+            android:id="@+id/profileButton" />
+
+        <ImageButton
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:src="@drawable/ic_attach_money_black"
+            android:layout_weight="1"
+            android:background="@android:drawable/screen_background_light_transparent"
+            android:id="@+id/paymentsButton" />
+
+        <ImageButton
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:src="@drawable/ic_settings_black"
+            android:layout_weight="1"
+            android:background="@android:drawable/screen_background_light_transparent"
+            android:id="@+id/settingsButton" />
+    </LinearLayout>
+</LinearLayout>

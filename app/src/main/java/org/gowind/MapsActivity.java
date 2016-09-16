@@ -1,39 +1,43 @@
 package org.gowind;
 
 import android.Manifest;
-import android.app.ActionBar;
 import android.content.Intent;
+import android.content.IntentSender;
 import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Location;
+import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
-import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.Toolbar;
 import android.util.Log;
-import android.view.Menu;
-import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.Toast;
 
 import com.crashlytics.android.Crashlytics;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.LocationSettingsRequest;
+import com.google.android.gms.location.LocationSettingsResult;
+import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
-import io.fabric.sdk.android.Fabric;
 import com.google.android.gms.maps.model.MarkerOptions;
 
 import org.gowind.api.LocationAddress;
@@ -41,31 +45,31 @@ import org.gowind.api.LocationAddress;
 import java.util.ArrayList;
 import java.util.List;
 
+import io.fabric.sdk.android.Fabric;
+
 
 public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback,
-        GoogleApiClient.OnConnectionFailedListener, GoogleApiClient.ConnectionCallbacks, LocationListener, AdapterView.OnItemClickListener, AdapterView.OnItemSelectedListener {
+        GoogleApiClient.OnConnectionFailedListener, GoogleApiClient.ConnectionCallbacks,
+        LocationListener, AdapterView.OnItemClickListener, AdapterView.OnItemSelectedListener {
 
     private static final String LOGTAG = "Gowind-MapsActivity";
-    private static final int MAP_LOCATION_CONSTANT = 12;
     private GoogleMap mMap;
     private Button requestButton;
-    private AutoCompleteTextView locationDropDown;
+    private AutoCompleteTextView originAutoComplete;
     GoogleApiClient mGoogleApiClient;
     private LocationRequest mLocationRequest;
+    private boolean mRequestingLocationUpdates = false;
     private boolean isMapReady;
+    private Location mCurrentUserLocation;
+    private ImageButton paymentsButton;
+    private ImageButton profileButton;
+    private ImageButton settingsButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Fabric.with(this, new Crashlytics());
         setContentView(R.layout.activity_maps);
-
-        //Setting up the action/toolbar
-        Toolbar myToolbar = (Toolbar) findViewById(R.id.my_toolbar);
-        setSupportActionBar(myToolbar);
-
-        android.support.v7.app.ActionBar ab = getSupportActionBar();
-        ab.setDisplayHomeAsUpEnabled(true);
 
         // Create an instance of GoogleAPIClient.
         if (mGoogleApiClient == null) {
@@ -81,24 +85,87 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
-        locationDropDown = (AutoCompleteTextView) findViewById(R.id.locationDropDown);
-        locationDropDown.setOnItemSelectedListener(this);
-        requestButton = (Button) findViewById(R.id.requestButton);
+        originAutoComplete = (AutoCompleteTextView) findViewById(R.id.originAutoComplete);
+        originAutoComplete.setOnItemSelectedListener(this);
 
+        requestButton = (Button) findViewById(R.id.requestButton);
         requestButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Toast.makeText(getApplicationContext(), "Your request has been created.", Toast.LENGTH_LONG).show();
             }
         });
+
+        profileButton = (ImageButton) findViewById(R.id.profileButton);
+        profileButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent profileIntent = new Intent(MapsActivity.this, UserProfileActivity.class);
+                startActivity(profileIntent);
+            }
+        });
+
+        paymentsButton = (ImageButton) findViewById(R.id.paymentsButton);
+        paymentsButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent paymentIntent = new Intent(MapsActivity.this, PaymentActivity.class);
+                startActivity(paymentIntent);
+            }
+        });
+
+        settingsButton = (ImageButton) findViewById(R.id.settingsButton);
+        settingsButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                //Intent userSettingsIntent = new Intent(MapsActivity.this, UserProfileActivity.class);
+                //TODO : Create settings activity and pass intent
+            }
+        });
+
+
+
+        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder()
+                .addLocationRequest(mLocationRequest);
+
+        final PendingResult<LocationSettingsResult> result =
+                LocationServices.SettingsApi.checkLocationSettings(mGoogleApiClient,
+                        builder.build());
+
+        result.setResultCallback(new ResultCallback<LocationSettingsResult>() {
+            @Override
+            public void onResult(@NonNull LocationSettingsResult locationSettingsResult) {
+                final Status status = locationSettingsResult.getStatus();
+                //final LocationSettingsStates locationSettingsStates = locationSettingsResult.getLocationSettingsStates();
+                switch (status.getStatusCode()) {
+                    case LocationSettingsStatusCodes.SUCCESS:
+                        // All location settings are satisfied. The client can
+                        // initialize location requests here.
+                        mRequestingLocationUpdates = true;
+                        break;
+
+                    case LocationSettingsStatusCodes.RESOLUTION_REQUIRED:
+                        // Location settings are not satisfied, but this can be fixed
+                        // by showing the user a dialog.
+                        try {
+                            // Show the dialog by calling startResolutionForResult(),
+                            // and check the result in onActivityResult().
+                            status.startResolutionForResult(
+                                    MapsActivity.this, 1);
+                        } catch (IntentSender.SendIntentException e) {
+                            // Ignore the error.
+                        }
+                        break;
+
+                    case LocationSettingsStatusCodes.SETTINGS_CHANGE_UNAVAILABLE:
+                        // Location settings are not satisfied. However, we have no way
+                        // to fix the settings so we won't show the dialog.
+                        break;
+                }
+            }
+        });
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        MenuInflater inflater = getMenuInflater();
-        inflater.inflate(R.menu.profile_menu, menu);
-        return true;
-    }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
@@ -132,6 +199,25 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         mGoogleApiClient.connect();
     }
 
+    @Override
+    protected void onPause() {
+        super.onPause();
+        stopLocationUpdates();
+    }
+
+    protected void stopLocationUpdates() {
+        LocationServices.FusedLocationApi.removeLocationUpdates(
+                mGoogleApiClient, this);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (mGoogleApiClient.isConnected() && !mRequestingLocationUpdates) {
+            startLocationUpdates();
+        }
+    }
+
 
     @Override
     protected void onStop() {
@@ -158,9 +244,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     public void onConnected(@Nullable Bundle bundle) {
         Log.i(LOGTAG, "Successfully connected to the Google Location Services API");
-        mLocationRequest = new LocationRequest()
-                .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
-                .setInterval(10000);
+        if (mRequestingLocationUpdates) {
+            startLocationUpdates();
+        }
+    }
+
+    protected void startLocationUpdates() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             // TODO: Consider calling
             //    ActivityCompat#requestPermissions
@@ -171,25 +260,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             // for ActivityCompat#requestPermissions for more details.
             return;
         }
-
-        //Getting current user location.
-        Location lastUserLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
-        LocationAddress currentAddress = new LocationAddress();
-
-        LatLng lastLoc = new LatLng(lastUserLocation.getLatitude(), lastUserLocation.getLongitude());
-
-        //Updating the map with a marker when ready.
-        if (isMapReady) {
-            mMap.addMarker(new MarkerOptions().position(lastLoc));
-            mMap.moveCamera(CameraUpdateFactory.newLatLng(lastLoc));
-        }
-
-        List<Address> addressList = currentAddress.getAddressFromLocation(this, lastUserLocation);
-        if (addressList.size() != 0) {
-            String userLocation = getAddressAsString(addressList.get(0));
-            locationDropDown.setText(userLocation);
-        }
-        LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
+        LocationServices.FusedLocationApi.requestLocationUpdates(
+                mGoogleApiClient, mLocationRequest, this);
     }
 
     @Override
@@ -204,25 +276,30 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     @Override
     public void onLocationChanged(Location location) {
-        LocationAddress locAddress = new LocationAddress();
-        List<Address> addressList = locAddress.getAddressFromLocation(this, location);
-        List<String> stringAddresses = new ArrayList<>();
+        mCurrentUserLocation = location;
+        updateUI();
+    }
 
+    private void updateUI() {
+        LocationAddress locAddress = new LocationAddress();
+        List<Address> addressList = locAddress.getAddressFromLocation(this, mCurrentUserLocation);
+        List<String> stringAddresses = new ArrayList<>();
+        LatLng lastLoc = new LatLng(mCurrentUserLocation.getLatitude(), mCurrentUserLocation.getLongitude());
         for (Address address : addressList) {
             stringAddresses.add(getAddressAsString(address));
         }
 
-        if (stringAddresses.size() != 0) {
-            Log.i(LOGTAG, "Location changed to: " + stringAddresses.get(0));
+        if (isMapReady) {
+            mMap.addMarker(new MarkerOptions().position(lastLoc));
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(lastLoc));
         }
-//        if (isMapReady) {
-//            mMap.addMarker(new MarkerOptions().position(new LatLng(location.getLatitude(),
-//                    location.getLongitude())).title("Marker in " + location.getLatitude()));
-//        }
-//        ArrayAdapter<String> autCompleteTextViewAdapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, stringAddresses);
-//        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-//        locationDropDown.setAdapter(spinnerAdapter);
+        if (addressList.size() != 0) {
+            ArrayAdapter<String> autoCompleteTextViewAdapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, stringAddresses);
+            autoCompleteTextViewAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            originAutoComplete.setAdapter(autoCompleteTextViewAdapter);
+        }
     }
+
 
     @Override
     public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {

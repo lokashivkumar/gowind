@@ -13,13 +13,106 @@
     <EditText
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:id="@+id/cardNumber"
+        android:inputType="textPersonName"
+        android:text="Name"
+        android:ems="10"
+        android:id="@+id/ccUserName"
         android:layout_alignParentTop="true"
         android:layout_alignParentLeft="true"
         android:layout_alignParentStart="true"
-        android:layout_alignParentRight="true"
-        android:layout_alignParentEnd="true"
-        android:text="4242 4242 4242 4242" />
+        android:layout_alignParentRight="true"/>
+
+
+    <EditText
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/ccAddressLine1"
+        android:text="Address Line 1"
+        android:layout_below="@+id/ccUserName"
+        />
+
+    <EditText
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/ccAddressLine2"
+        android:text="Address Line 2"
+        android:layout_below="@+id/ccAddressLine1"
+        />
+
+    <EditText
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/ccAddressCity"
+        android:text="City"
+        android:layout_below="@+id/ccAddressLine2"
+        />
+
+    <EditText
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/ccAddressState"
+        android:text="State"
+        android:layout_below="@+id/ccAddressLine2"
+        android:layout_toRightOf="@id/ccAddressCity"
+
+        />
+
+    <EditText
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/ccAddressCountry"
+        android:text="Country"
+        android:layout_below="@+id/ccAddressState"
+        />
+
+    <EditText
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/ccAddressZip"
+        android:text="Zip code:"
+        android:layout_below="@+id/ccAddressState"
+        android:layout_toRightOf="@id/ccAddressCountry"
+        />
+
+    <EditText
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/cardCurrency"
+        android:text="Currency"
+        android:layout_below="@+id/ccAddressZip"
+        />
+
+    <EditText
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/ccType"
+        android:text="Card Type"
+        android:layout_below="@+id/cardCurrency"
+        />
+
+    <EditText
+        android:layout_height="0dp"
+        android:layout_width="wrap_content"
+        android:id="@+id/userFingerprint"
+        android:layout_below="@+id/ccType"
+        android:text="Finger print"
+        android:visibility="invisible" />
+
+    <EditText
+        android:layout_width="wrap_content"
+        android:layout_height="0dp"
+        android:id="@+id/last4"
+        android:layout_below="@+id/userFingerprint"
+        />
+
+    <!-- Credit Card details -->
+    <EditText
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/cardNumber"
+        android:text="4242 4242 4242 4242"
+        android:layout_below="@+id/last4"
+        />
 
     <EditText
         android:layout_width="30dp"
@@ -28,8 +121,6 @@
         android:ems="10"
         android:id="@+id/month"
         android:layout_below="@+id/cardNumber"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentStart="true"
         android:text="12" />
 
     <EditText
@@ -73,6 +164,5 @@
         android:layout_alignParentRight="true"
         android:layout_alignParentEnd="true"
         android:onClick="submitCard" />
-
 
 </RelativeLayout>

@@ -28,6 +28,4 @@ public class LocationAddress {
         }
         return addresses;
     }
-
-
 }
