@@ -2,14 +2,13 @@ package org.gowind;
 
 import android.Manifest;
 import android.content.Intent;
-import android.content.IntentSender;
 import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Location;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.MenuItem;
@@ -19,48 +18,54 @@ import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import com.crashlytics.android.Crashlytics;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.PendingResult;
-import com.google.android.gms.common.api.ResultCallback;
-import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.location.LocationSettingsRequest;
-import com.google.android.gms.location.LocationSettingsResult;
-import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
 import org.gowind.api.LocationAddress;
+import org.gowind.util.PermissionUtils;
 
+import java.text.DateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import io.fabric.sdk.android.Fabric;
 
 
-public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback,
+public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleMap.OnMyLocationButtonClickListener,
         GoogleApiClient.OnConnectionFailedListener, GoogleApiClient.ConnectionCallbacks,
         LocationListener, AdapterView.OnItemClickListener, AdapterView.OnItemSelectedListener {
 
     private static final String LOGTAG = "Gowind-MapsActivity";
+    private final int LOCATION_PERMISSION_REQUEST_CODE = 1;
+
     private GoogleMap mMap;
-    private Button requestButton;
-    private AutoCompleteTextView originAutoComplete;
-    GoogleApiClient mGoogleApiClient;
+    private GoogleApiClient mGoogleApiClient;
     private LocationRequest mLocationRequest;
     private boolean mRequestingLocationUpdates = false;
     private boolean isMapReady;
-    private Location mCurrentUserLocation;
+    private Location mCurrentLocation;
+    private Marker mMarker;
+    private LinearLayout mapsLayout;
+    private boolean mPermissionDenied = false;
+
+    private Button requestButton;
+    private AutoCompleteTextView originAutoComplete;
     private ImageButton paymentsButton;
     private ImageButton profileButton;
     private ImageButton settingsButton;
@@ -84,6 +89,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
+
+        mapsLayout = (LinearLayout) findViewById(R.id.mapsLayout);
 
         originAutoComplete = (AutoCompleteTextView) findViewById(R.id.originAutoComplete);
         originAutoComplete.setOnItemSelectedListener(this);
@@ -124,48 +131,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         });
 
 
-
-        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder()
-                .addLocationRequest(mLocationRequest);
-
-        final PendingResult<LocationSettingsResult> result =
-                LocationServices.SettingsApi.checkLocationSettings(mGoogleApiClient,
-                        builder.build());
-
-        result.setResultCallback(new ResultCallback<LocationSettingsResult>() {
-            @Override
-            public void onResult(@NonNull LocationSettingsResult locationSettingsResult) {
-                final Status status = locationSettingsResult.getStatus();
-                //final LocationSettingsStates locationSettingsStates = locationSettingsResult.getLocationSettingsStates();
-                switch (status.getStatusCode()) {
-                    case LocationSettingsStatusCodes.SUCCESS:
-                        // All location settings are satisfied. The client can
-                        // initialize location requests here.
-                        mRequestingLocationUpdates = true;
-                        break;
-
-                    case LocationSettingsStatusCodes.RESOLUTION_REQUIRED:
-                        // Location settings are not satisfied, but this can be fixed
-                        // by showing the user a dialog.
-                        try {
-                            // Show the dialog by calling startResolutionForResult(),
-                            // and check the result in onActivityResult().
-                            status.startResolutionForResult(
-                                    MapsActivity.this, 1);
-                        } catch (IntentSender.SendIntentException e) {
-                            // Ignore the error.
-                        }
-                        break;
-
-                    case LocationSettingsStatusCodes.SETTINGS_CHANGE_UNAVAILABLE:
-                        // Location settings are not satisfied. However, we have no way
-                        // to fix the settings so we won't show the dialog.
-                        break;
-                }
-            }
-        });
     }
 
+
+    //TODO: Offload locationServices to a different Thread / asyncTask
+    //TODO: Reduce weight on the main thread.
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
@@ -195,8 +165,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     @Override
     protected void onStart() {
-        super.onStart();
         mGoogleApiClient.connect();
+        super.onStart();
     }
 
     @Override
@@ -205,17 +175,10 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         stopLocationUpdates();
     }
 
-    protected void stopLocationUpdates() {
-        LocationServices.FusedLocationApi.removeLocationUpdates(
-                mGoogleApiClient, this);
-    }
 
     @Override
     public void onResume() {
         super.onResume();
-        if (mGoogleApiClient.isConnected() && !mRequestingLocationUpdates) {
-            startLocationUpdates();
-        }
     }
 
 
@@ -225,6 +188,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         Log.e(LOGTAG, "Disconnected from Google Locaiton services");
         super.onStop();
     }
+
+
+    /** START MAP/LOCATION RELATED CODE **/
 
     /**
      * Manipulates the map once available.
@@ -237,32 +203,46 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
      */
     @Override
     public void onMapReady(GoogleMap googleMap) {
-        isMapReady = true;
         mMap = googleMap;
+        mMap.setOnMyLocationButtonClickListener(this);
+        isMapReady = true;
     }
 
     @Override
+    public boolean onMyLocationButtonClick() {
+        enableMyLocation();
+        return false;
+    }
+
+
+    @Override
     public void onConnected(@Nullable Bundle bundle) {
-        Log.i(LOGTAG, "Successfully connected to the Google Location Services API");
-        if (mRequestingLocationUpdates) {
-            startLocationUpdates();
+        Log.i(LOGTAG, "Inside on Connected method of Location Services");
+        mLocationRequest = LocationRequest.create()
+                .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
+                .setInterval(10000)
+                .setFastestInterval(5000);
+        mRequestingLocationUpdates = true;
+        enableMyLocation();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        if (requestCode != LOCATION_PERMISSION_REQUEST_CODE) {
+            return;
+        }
+
+        if (PermissionUtils.isPermissionGranted(permissions, grantResults,
+                Manifest.permission.ACCESS_FINE_LOCATION)) {
+            // Enable the my location layer if the permission has been granted.
+            enableMyLocation();
+        } else {
+            // Display the missing permission error dialog when the fragments resume.
+            mPermissionDenied = true;
         }
     }
 
-    protected void startLocationUpdates() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return;
-        }
-        LocationServices.FusedLocationApi.requestLocationUpdates(
-                mGoogleApiClient, mLocationRequest, this);
-    }
 
     @Override
     public void onConnectionSuspended(int i) {
@@ -276,25 +256,59 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     @Override
     public void onLocationChanged(Location location) {
-        mCurrentUserLocation = location;
-        updateUI();
+        String lastLocationUpdateTime = DateFormat.getTimeInstance().format(new Date());
+        mCurrentLocation = location;
+        updateUI(location, lastLocationUpdateTime);
     }
 
-    private void updateUI() {
-        LocationAddress locAddress = new LocationAddress();
-        List<Address> addressList = locAddress.getAddressFromLocation(this, mCurrentUserLocation);
-        List<String> stringAddresses = new ArrayList<>();
-        LatLng lastLoc = new LatLng(mCurrentUserLocation.getLatitude(), mCurrentUserLocation.getLongitude());
-        for (Address address : addressList) {
-            stringAddresses.add(getAddressAsString(address));
+    private void stopLocationUpdates() {
+        LocationServices.FusedLocationApi.removeLocationUpdates(
+                mGoogleApiClient, this);
+    }
+
+    /**
+     * Enables the My Location layer if the fine location permission has been granted.
+     */
+    private void enableMyLocation() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            // Permission to access the location is missing.
+            PermissionUtils.requestPermission(this, LOCATION_PERMISSION_REQUEST_CODE,
+                    Manifest.permission.ACCESS_FINE_LOCATION, true);
+        } else if (mMap != null) {
+            // Access to the location has been granted to the app.
+            mMap.setMyLocationEnabled(true);
+        }
+        LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
+    }
+
+    private void updateUI(Location currentLocation, String lastUpdateTime) {
+        if (mMarker != null) {
+            mMarker.remove();
+        }
+        Log.i(LOGTAG, currentLocation.getLatitude() + " :: " +
+                currentLocation.getLongitude() + " : update time: " +lastUpdateTime);
+        LatLng latLng = new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude());
+        MarkerOptions markerOptions = new MarkerOptions()
+                .position(latLng)
+                .title("Current Position")
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_MAGENTA));
+        mMarker = mMap.addMarker(markerOptions);
+        mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+
+        List<Address> addressList = LocationAddress.getAddressFromLocation(this, currentLocation);
+        List<String> stringAddressList = new ArrayList<>();
+
+        for (Address address: addressList) {
+            stringAddressList.add(getAddressAsString(address));
         }
 
-        if (isMapReady) {
-            mMap.addMarker(new MarkerOptions().position(lastLoc));
-            mMap.moveCamera(CameraUpdateFactory.newLatLng(lastLoc));
+        for (String address: stringAddressList) {
+            Log.i(LOGTAG, address);
         }
-        if (addressList.size() != 0) {
-            ArrayAdapter<String> autoCompleteTextViewAdapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, stringAddresses);
+
+        if (addressList.size() > 0) {
+            ArrayAdapter<String> autoCompleteTextViewAdapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, stringAddressList);
             autoCompleteTextViewAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
             originAutoComplete.setAdapter(autoCompleteTextViewAdapter);
         }
@@ -302,8 +316,26 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
 
     @Override
-    public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+    protected void onResumeFragments() {
+        super.onResumeFragments();
+        if (mPermissionDenied) {
+            // Permission was not granted, display error dialog.
+            showMissingPermissionError();
+            mPermissionDenied = false;
+        }
+    }
 
+    /**
+     * Displays a dialog with error message explaining that the location permission is missing.
+     */
+    private void showMissingPermissionError() {
+        PermissionUtils.PermissionDeniedDialog
+                .newInstance(true).show(getSupportFragmentManager(), "dialog");
+    }
+    /** END MAP/LOCATION RELATED CODE **/
+
+    @Override
+    public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
     }
 
     @Override
@@ -323,7 +355,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
      * @return
      */
     private String getAddressAsString(Address address) {
-
         StringBuffer sb = new StringBuffer();
         sb.append(address.getFeatureName()).append(" ")
                 .append(address.getAddressLine(0)).append(" ")

@@ -36,7 +36,7 @@
         -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="@string/google_maps_key" />
+            android:value="AIzaSyD2iT49Ns5dRnrpfpk0Lhlj9zeAJZg66fk" />
         <meta-data
             android:name="io.fabric.ApiKey"
             android:value="6be690330ebd07ce04f235b4ca3e558cde2557de" />
@@ -47,9 +47,6 @@
             android:label="@string/title_activity_login"
             android:parentActivityName=".MapsActivity"/>
 
-        <meta-data
-            android:name="io.fabric.ApiKey"
-            android:value="6be690330ebd07ce04f235b4ca3e558cde2557de" />
 
         <activity android:name=".PaymentActivity"
             android:parentActivityName=".LoginActivity"></activity>

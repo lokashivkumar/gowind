@@ -17,7 +17,7 @@ import java.util.Locale;
 public class LocationAddress {
     private static final int NUMBER_OF_ADDRESSES = 1;
 
-    public List<Address> getAddressFromLocation(Context context, Location location) {
+    public static List<Address> getAddressFromLocation(Context context, Location location) {
         List<Address> addresses = new ArrayList<>();
 
         Geocoder geocoder = new Geocoder(context, Locale.getDefault());
