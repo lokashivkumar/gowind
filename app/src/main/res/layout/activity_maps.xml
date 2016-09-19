@@ -22,15 +22,15 @@
                 android:layout_weight="1"
                 android:orientation="horizontal"
                 android:id="@+id/originLayout"
-                android:weightSum="7">
+                android:weightSum="9"
+                android:gravity="center"
+                android:layout_gravity="center">
 
                 <ImageView
                     android:layout_width="0dp"
                     android:layout_height="12dp"
                     android:src="@drawable/ic_green_origin_oval"
-                    android:layout_weight="1"
-                    android:layout_marginLeft="2dp"
-                    android:layout_marginTop="10dp" />
+                    android:layout_weight="1" />
 
                 <AutoCompleteTextView
                     android:layout_width="0dp"
@@ -40,7 +40,7 @@
                     android:animateLayoutChanges="true"
                     android:maxLines="1"
                     android:hint="Enter a location"
-                    android:layout_weight="6"
+                    android:layout_weight="8"
                     android:padding="8dp" />
             </LinearLayout>
 
@@ -51,15 +51,15 @@
                 android:orientation="horizontal"
                 android:id="@+id/destinationLayout"
                 android:layout_below="@+id/originLayout"
-                android:weightSum="7">
+                android:weightSum="9"
+                android:layout_gravity="center"
+                android:gravity="center">
 
                 <ImageView
                     android:layout_width="0dp"
                     android:layout_height="12dp"
                     android:src="@drawable/ic_red_destination_oval"
-                    android:layout_weight="1"
-                    android:layout_marginLeft="2dp"
-                    android:layout_marginTop="10dp" />
+                    android:layout_weight="1" />
 
                 <AutoCompleteTextView
                     android:layout_width="0dp"
@@ -69,7 +69,7 @@
                     android:animateLayoutChanges="true"
                     android:maxLines="1"
                     android:hint="Enter a destination"
-                    android:layout_weight="6"
+                    android:layout_weight="8"
                     android:padding="8dp" />
 
             </LinearLayout>

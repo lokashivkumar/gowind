@@ -39,22 +39,36 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import org.gowind.api.LocationAddress;
 import org.gowind.util.PermissionUtils;
 
+import java.io.IOException;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import butterknife.BindView;
+import butterknife.ButterKnife;
 import io.fabric.sdk.android.Fabric;
+import io.fabric.sdk.android.services.concurrency.AsyncTask;
 
 
 public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleMap.OnMyLocationButtonClickListener,
         GoogleApiClient.OnConnectionFailedListener, GoogleApiClient.ConnectionCallbacks,
         LocationListener, AdapterView.OnItemClickListener, AdapterView.OnItemSelectedListener {
 
+    //TODO: Use butterknife
+
+
     private static final String LOGTAG = "Gowind-MapsActivity";
     private final int LOCATION_PERMISSION_REQUEST_CODE = 1;
 
-    private GoogleMap mMap;
+    GoogleMap mMap;
+    @BindView(R.id.requestButton) Button requestButton;
+    @BindView(R.id.originAutoComplete) AutoCompleteTextView originAutoComplete;
+    //AutoCompleteTextView originAutoComplete;
+    @BindView(R.id.paymentsButton) ImageButton paymentsButton;
+    @BindView(R.id.profileButton) ImageButton profileButton;
+    @BindView(R.id.settingsButton) ImageButton settingsButton;
+
     private GoogleApiClient mGoogleApiClient;
     private LocationRequest mLocationRequest;
     private boolean mRequestingLocationUpdates = false;
@@ -63,18 +77,17 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private Marker mMarker;
     private LinearLayout mapsLayout;
     private boolean mPermissionDenied = false;
+    private List<String> stringAddressList = new ArrayList<>();
 
-    private Button requestButton;
-    private AutoCompleteTextView originAutoComplete;
-    private ImageButton paymentsButton;
-    private ImageButton profileButton;
-    private ImageButton settingsButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Fabric.with(this, new Crashlytics());
         setContentView(R.layout.activity_maps);
+        ButterKnife.bind(this);
+
+    //    originAutoComplete = (AutoCompleteTextView) findViewById(R.id.originAutoComplete);
 
         // Create an instance of GoogleAPIClient.
         if (mGoogleApiClient == null) {
@@ -85,17 +98,18 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     .build();
         }
 
+
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
-        mapsLayout = (LinearLayout) findViewById(R.id.mapsLayout);
+        setupBottomPanelButtonListeners();
+    }
 
-        originAutoComplete = (AutoCompleteTextView) findViewById(R.id.originAutoComplete);
+    private void setupBottomPanelButtonListeners() {
+
         originAutoComplete.setOnItemSelectedListener(this);
-
-        requestButton = (Button) findViewById(R.id.requestButton);
         requestButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -103,7 +117,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
         });
 
-        profileButton = (ImageButton) findViewById(R.id.profileButton);
         profileButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -112,7 +125,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
         });
 
-        paymentsButton = (ImageButton) findViewById(R.id.paymentsButton);
         paymentsButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -121,7 +133,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
         });
 
-        settingsButton = (ImageButton) findViewById(R.id.settingsButton);
         settingsButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -129,10 +140,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 //TODO : Create settings activity and pass intent
             }
         });
-
-
     }
-
 
     //TODO: Offload locationServices to a different Thread / asyncTask
     //TODO: Reduce weight on the main thread.
@@ -256,15 +264,17 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     @Override
     public void onLocationChanged(Location location) {
-        String lastLocationUpdateTime = DateFormat.getTimeInstance().format(new Date());
         mCurrentLocation = location;
-        updateUI(location, lastLocationUpdateTime);
+        String hello = "I am in Location Changed";
+        Log.i(LOGTAG, hello);
+        new UpdateUILocationTask().execute(mCurrentLocation);
     }
 
     private void stopLocationUpdates() {
         LocationServices.FusedLocationApi.removeLocationUpdates(
                 mGoogleApiClient, this);
     }
+
 
     /**
      * Enables the My Location layer if the fine location permission has been granted.
@@ -282,35 +292,86 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
     }
 
-    private void updateUI(Location currentLocation, String lastUpdateTime) {
-        if (mMarker != null) {
-            mMarker.remove();
+    private class UpdateUILocationTask extends AsyncTask<Location, Integer, LatLng> {
+        protected LatLng doInBackground(Location... locations) {
+            Log.i(LOGTAG, "Inside Async task updating location address");
+            List<Address> addressList;
+            LatLng latLng = null;
+            Location userLocation = locations[0];
+            if (userLocation != null) {
+                String lastLocationUpdateTime = DateFormat.getTimeInstance().format(new Date());
+
+                Log.i(LOGTAG, userLocation.getLatitude() + " :: " +
+                        userLocation.getLongitude() + " : update time: " +lastLocationUpdateTime);
+                latLng = new LatLng(userLocation.getLatitude(), userLocation.getLongitude());
+
+                try {
+                    LocationAddress locAddress = new LocationAddress();
+                    addressList = locAddress.getAddressFromLocation(MapsActivity.this, userLocation);
+
+                    if (addressList != null && addressList.size() > 0) {
+                        for (Address address : addressList) {
+                            Log.i(LOGTAG, ":::" + address.getCountryCode() + address.getFeatureName());
+                            stringAddressList.add(getAddressAsString(address));
+                        }
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (mMarker != null) {
+                                    mMarker.remove();
+                                }
+                                ArrayAdapter<String> autoCompleteTextViewAdapter =
+                                        new ArrayAdapter<>(MapsActivity.this, android.R.layout.simple_dropdown_item_1line, stringAddressList);
+                                autoCompleteTextViewAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                                originAutoComplete.setAdapter(autoCompleteTextViewAdapter);
+                            }
+                        });
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            return latLng;
         }
-        Log.i(LOGTAG, currentLocation.getLatitude() + " :: " +
-                currentLocation.getLongitude() + " : update time: " +lastUpdateTime);
-        LatLng latLng = new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude());
-        MarkerOptions markerOptions = new MarkerOptions()
-                .position(latLng)
-                .title("Current Position")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_MAGENTA));
-        mMarker = mMap.addMarker(markerOptions);
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
 
-        List<Address> addressList = LocationAddress.getAddressFromLocation(this, currentLocation);
-        List<String> stringAddressList = new ArrayList<>();
+        /**
+         * Helper method to convert a given Address Object to String -
+         * returns Location, city, state, feature name, country code, postal code.
+         * @param address
+         * @return
+         */
+        private String getAddressAsString(Address address) {
+            StringBuffer sb = new StringBuffer();
+            if (address.getFeatureName().isEmpty()) {
+                sb.append(address.getAddressLine(0)).append(" ")
+                        .append(address.getAdminArea()).append(" ")
+                        .append(address.getCountryCode());
+            }
+            sb.append(address.getFeatureName()).append(" ")
+                    .append(address.getAddressLine(0)).append(" ")
+                    .append(address.getLocality()).append(" ")
+                    .append(address.getAdminArea()).append(" ")
+                    .append(address.getCountryCode()).append(" ");
 
-        for (Address address: addressList) {
-            stringAddressList.add(getAddressAsString(address));
+            return sb.toString();
         }
 
-        for (String address: stringAddressList) {
-            Log.i(LOGTAG, address);
-        }
-
-        if (addressList.size() > 0) {
-            ArrayAdapter<String> autoCompleteTextViewAdapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, stringAddressList);
-            autoCompleteTextViewAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-            originAutoComplete.setAdapter(autoCompleteTextViewAdapter);
+        @Override
+        protected void onPostExecute(LatLng latLng) {
+            final LatLng latLong = latLng;
+           if (latLng != null) {
+               runOnUiThread(new Runnable() {
+                   @Override
+                   public void run() {
+                       MarkerOptions markerOptions = new MarkerOptions()
+                               .position(latLong)
+                               .title("Current Position")
+                               .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_MAGENTA));
+                       mMarker = mMap.addMarker(markerOptions);
+                       mMap.moveCamera(CameraUpdateFactory.newLatLng(latLong));
+                   }
+               });
+           }
         }
     }
 
@@ -348,22 +409,4 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     }
 
-    /**
-     * Helper method to convert a given Address Object to String -
-     * returns Location, city, state, feature name, country code, postal code.
-     * @param address
-     * @return
-     */
-    private String getAddressAsString(Address address) {
-        StringBuffer sb = new StringBuffer();
-        sb.append(address.getFeatureName()).append(" ")
-                .append(address.getAddressLine(0)).append(" ")
-                .append(address.getLocality()).append(" ")
-                .append(address.getAdminArea()).append(" ")
-                .append(address.getLocality()).append(" ")
-                .append(address.getCountryCode()).append(" ")
-                .append(address.getPostalCode());
-
-        return sb.toString();
-    }
 }
