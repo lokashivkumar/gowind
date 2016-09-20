@@ -23,7 +23,7 @@ android {
     defaultConfig {
         applicationId "org.gowind"
         minSdkVersion 21
-        targetSdkVersion 23
+        targetSdkVersion 22
         multiDexEnabled true
         versionCode 1
         versionName "1.0"
