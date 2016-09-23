@@ -75,7 +75,6 @@ public class FetchAddressService extends IntentService {
         } else {
             ArrayList<String> stringAddresses = new ArrayList<>();
             for (Address address : addressesList) {
-                Log.i(TAG, address.getAddressLine(0));
                 stringAddresses.add(address.getAddressLine(0));
             }
             Log.i(TAG, getString(R.string.address_found));

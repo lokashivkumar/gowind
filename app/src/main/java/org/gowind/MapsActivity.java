@@ -14,6 +14,7 @@ import android.support.v4.os.ResultReceiver;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
@@ -36,6 +37,7 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
 import org.gowind.api.Constants;
+import org.gowind.api.UserLocation;
 import org.gowind.services.FetchAddressService;
 import org.gowind.util.PermissionUtils;
 
@@ -46,11 +48,14 @@ import butterknife.ButterKnife;
 import io.fabric.sdk.android.Fabric;
 
 
-public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleMap.OnMyLocationButtonClickListener,
-        GoogleApiClient.OnConnectionFailedListener, GoogleApiClient.ConnectionCallbacks,
-        LocationListener {
+public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback,
+        GoogleMap.OnMyLocationButtonClickListener,
+        GoogleApiClient.OnConnectionFailedListener,
+        GoogleApiClient.ConnectionCallbacks,
+        LocationListener,
+        AdapterView.OnItemClickListener {
 
-    private static final String LOGTAG = "Gowind-MapsActivity";
+    private static final String LOGTAG = MapsActivity.class.getSimpleName();
     private final int LOCATION_PERMISSION_REQUEST_CODE = 1;
 
     @BindView(R.id.requestButton) Button requestButton;
@@ -68,6 +73,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private Marker mMarker;
     private boolean mPermissionDenied = false;
     private AddressResultReceiver mResultReceiver = new AddressResultReceiver(new Handler());
+    private UserLocation userLocation = new UserLocation();
+
+    // TODO: Manage device orientation changes - onSaveInstanceState() and onRestoreInstanceState()
 
 
     @Override
@@ -142,6 +150,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     protected void onStart() {
         mGoogleApiClient.connect();
+        originAutoComplete.setOnItemClickListener(this);
         super.onStart();
     }
 
@@ -212,14 +221,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         Location myCurrentLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
         if (myCurrentLocation != null) {
             updateMarker(myCurrentLocation);
-            //TODO: Add code to call Intent Service here...
+            userLocation.setOriginLatLng(new LatLng(myCurrentLocation.getLatitude(), myCurrentLocation.getLongitude()));
             startIntentService(myCurrentLocation);
         } else {
             PermissionUtils.requestPermission(this, LOCATION_PERMISSION_REQUEST_CODE,
                     Manifest.permission.ACCESS_FINE_LOCATION, true);
         }
-        String hello = "hello";
-        Log.i(LOGTAG, hello);
         //to receive location updates upon movement.
         LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
     }
@@ -244,7 +251,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     public void onLocationChanged(Location location) {
         updateMarker(location);
-        //TODO: Add code to call Intent Service here...
+        userLocation.setOriginLatLng(new LatLng(location.getLatitude(), location.getLongitude()));
         startIntentService(location);
     }
 
@@ -260,6 +267,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             CameraUpdate zoom = CameraUpdateFactory.zoomTo(15);
             mMap.animateCamera(zoom);
         }
+    }
+
+    @Override
+    public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+        userLocation.setOriginLocation((String) parent.getItemAtPosition(position));
     }
 
 
@@ -288,7 +300,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 autoCompleteTextViewAdapter.notifyDataSetChanged();
             }
         }
-
     }
 
     private void stopLocationUpdates() {
