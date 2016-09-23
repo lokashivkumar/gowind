@@ -3,13 +3,14 @@ package org.gowind;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.os.ResultReceiver;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
@@ -17,7 +18,6 @@ import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.ImageButton;
-import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import com.crashlytics.android.Crashlytics;
@@ -35,34 +35,24 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
+import org.gowind.api.Constants;
+import org.gowind.services.FetchAddressService;
 import org.gowind.util.PermissionUtils;
 
-import java.io.IOException;
-import java.text.DateFormat;
-import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import io.fabric.sdk.android.Fabric;
-import io.fabric.sdk.android.services.concurrency.AsyncTask;
 
 
 public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleMap.OnMyLocationButtonClickListener,
         GoogleApiClient.OnConnectionFailedListener, GoogleApiClient.ConnectionCallbacks,
         LocationListener {
 
-    //TODO: Use butterknife
-
-
     private static final String LOGTAG = "Gowind-MapsActivity";
-    private static final int NUMBER_OF_ADDRESSES = 3;
-    private static final int MINIMUM_DROPDOWN_THRESHOLD = 3;
     private final int LOCATION_PERMISSION_REQUEST_CODE = 1;
 
-    GoogleMap mMap;
     @BindView(R.id.requestButton) Button requestButton;
     @BindView(R.id.originAutoComplete) AutoCompleteTextView originAutoComplete;
     @BindView(R.id.destinationAutoComplete) AutoCompleteTextView destinationAutoComplete;
@@ -70,24 +60,15 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     @BindView(R.id.profileButton) ImageButton profileButton;
     @BindView(R.id.settingsButton) ImageButton settingsButton;
 
+    private GoogleMap mMap;
     private GoogleApiClient mGoogleApiClient;
     private LocationRequest mLocationRequest;
     private boolean mRequestingLocationUpdates = false;
     private boolean isMapReady;
-    private Location mCurrentLocation;
     private Marker mMarker;
-    private LinearLayout mapsLayout;
     private boolean mPermissionDenied = false;
+    private AddressResultReceiver mResultReceiver = new AddressResultReceiver(new Handler());
 
-    private LatLng mCurrentLatLng;
-
-    public LatLng getmCurrentLatLng() {
-        return mCurrentLatLng;
-    }
-
-    public void setmCurrentLatLng(LatLng mCurrentLatLng) {
-        this.mCurrentLatLng = mCurrentLatLng;
-    }
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
@@ -120,9 +101,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
-
         setUpViewListeners();
     }
+
 
     private void setUpViewListeners() {
 
@@ -184,17 +165,10 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         super.onStop();
     }
 
-
-    /** START MAP/LOCATION RELATED CODE **/
-
     /**
      * Manipulates the map once available.
      * This callback is triggered when the map is ready to be used.
-     * This is where we can add markers or lines, add listeners or move the camera. In this case,
-     * we just add a marker near Sydney, Australia.
-     * If Google Play services is not installed on the device, the user will be prompted to install
-     * it inside the SupportMapFragment. This method will only be triggered once the user has
-     * installed Google Play services and returned to the app.
+     * This is where we can add markers or lines, add listeners or move the camera.
      */
     @Override
     public void onMapReady(GoogleMap googleMap) {
@@ -217,12 +191,13 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 .setInterval(10000)
                 .setFastestInterval(5000);
         mRequestingLocationUpdates = true;
+        if (!Geocoder.isPresent()) {
+            Toast.makeText(this, R.string.geocoder_not_found, Toast.LENGTH_LONG).show();
+        }
         enableMyLocation();
     }
 
-    /**
-     * Enables the My Location layer if the fine location permission has been granted.
-     */
+
     private void enableMyLocation() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -236,29 +211,25 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
         Location myCurrentLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
         if (myCurrentLocation != null) {
-            new UpdateMarkerTask().execute(myCurrentLocation);
+            updateMarker(myCurrentLocation);
+            //TODO: Add code to call Intent Service here...
+            startIntentService(myCurrentLocation);
+        } else {
+            PermissionUtils.requestPermission(this, LOCATION_PERMISSION_REQUEST_CODE,
+                    Manifest.permission.ACCESS_FINE_LOCATION, true);
         }
+        String hello = "hello";
+        Log.i(LOGTAG, hello);
         //to receive location updates upon movement.
         LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
-        if (requestCode != LOCATION_PERMISSION_REQUEST_CODE) {
-            return;
-        }
-
-        if (PermissionUtils.isPermissionGranted(permissions, grantResults,
-                Manifest.permission.ACCESS_FINE_LOCATION)) {
-            // Enable the my location layer if the permission has been granted.
-            enableMyLocation();
-        } else {
-            // Display the missing permission error dialog when the fragments resume.
-            mPermissionDenied = true;
-        }
+    private void startIntentService(Location location) {
+        Intent addressFetchIntent = new Intent(this, FetchAddressService.class);
+        addressFetchIntent.putExtra(Constants.RECEIVER, mResultReceiver);
+        addressFetchIntent.putExtra(Constants.LOCATION_DATA_EXTRA, location);
+        startService(addressFetchIntent);
     }
-
 
     @Override
     public void onConnectionSuspended(int i) {
@@ -272,100 +243,57 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     @Override
     public void onLocationChanged(Location location) {
-        mCurrentLocation = location;
-        new UpdateMarkerTask().execute(mCurrentLocation);
-        Log.i(LOGTAG, getmCurrentLatLng().latitude + " : " + getmCurrentLatLng().longitude);
-        new UpdateTextViewAdapterTask().execute(getmCurrentLatLng());
+        updateMarker(location);
+        //TODO: Add code to call Intent Service here...
+        startIntentService(location);
+    }
+
+    private void updateMarker(Location location) {
+        Log.i(LOGTAG, "Updating Marker...");
+        LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
+        MarkerOptions markerOptions = new MarkerOptions()
+                .position(latLng)
+                .title("Current Position");
+        if (isMapReady) {
+            mMarker = mMap.addMarker(markerOptions);
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+            CameraUpdate zoom = CameraUpdateFactory.zoomTo(15);
+            mMap.animateCamera(zoom);
+        }
+    }
+
+
+    public class AddressResultReceiver extends ResultReceiver {
+
+        /**
+         * Create a new ResultReceive to receive results.  Your
+         * {@link #onReceiveResult} method will be called from the thread running
+         * <var>handler</var> if given, or from an arbitrary thread if null.
+         *
+         * @param handler
+         */
+        public AddressResultReceiver(Handler handler) {
+            super(handler);
+        }
+
+        @Override
+        protected void onReceiveResult(int resultCode, Bundle resultData) {
+            if (resultCode == Constants.SUCCESS_RESULT) {
+                List<String> addressList = resultData.getStringArrayList(Constants.RESULT_DATA_KEY);
+                ArrayAdapter autoCompleteTextViewAdapter = new ArrayAdapter(MapsActivity.this,
+                        android.R.layout.simple_dropdown_item_1line, addressList);
+                autoCompleteTextViewAdapter.setNotifyOnChange(false);
+                autoCompleteTextViewAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                originAutoComplete.setAdapter(autoCompleteTextViewAdapter);
+                autoCompleteTextViewAdapter.notifyDataSetChanged();
+            }
+        }
+
     }
 
     private void stopLocationUpdates() {
         LocationServices.FusedLocationApi.removeLocationUpdates(
                 mGoogleApiClient, this);
-    }
-
-    /**
-     * This class has the following functions:
-     * 1. upon change in location, the onLocationChanged method passes the location to this class
-     * 2. this class takes the location parameter and passes the LatLng to onPostExecute method
-     * 3. The onPostExecute() updates the view (marker and map) on the UI thread with the latlng.
-     */
-
-    private class UpdateMarkerTask extends AsyncTask<Location, Integer, LatLng> {
-        @Override
-        protected LatLng doInBackground(Location... locations) {
-            Thread.currentThread().setName("LocationUpdater");
-            LatLng latLng = null;
-            Location userLocation = locations[0];
-            if (userLocation != null) {
-                String lastLocationUpdateTime = DateFormat.getTimeInstance().format(new Date());
-                Log.i(LOGTAG, userLocation.getLatitude() + " : " +
-                        userLocation.getLongitude() + " : update time: " + lastLocationUpdateTime);
-                latLng = new LatLng(userLocation.getLatitude(), userLocation.getLongitude());
-            }
-            return latLng;
-        }
-
-        @Override
-        protected void onPostExecute(LatLng latLng) {
-            final LatLng latLong = latLng;
-
-            setmCurrentLatLng(latLong);
-            if (mMarker != null) {
-                mMarker.remove();
-            }
-            MarkerOptions markerOptions = new MarkerOptions()
-                    .position(latLong)
-                    .title("Current Position");
-            mMarker = mMap.addMarker(markerOptions);
-            mMap.moveCamera(CameraUpdateFactory.newLatLng(latLong));
-            CameraUpdate zoom = CameraUpdateFactory.zoomTo(15);
-            mMap.animateCamera(zoom);
-         }
-    }
-
-    private class UpdateTextViewAdapterTask extends AsyncTask<LatLng, Void, List<String>> {
-        @Override
-        protected List<String> doInBackground(LatLng... latLngs) {
-            Thread.currentThread().setName("TextViewAdapterUpdater");
-
-            LatLng latLng = latLngs[0];
-            List<Address> addresses = new ArrayList<>();
-            String errorMessage;
-            List<String> stringAddresses = new ArrayList<>();
-            if (latLng != null) {
-                Geocoder geocoder = new Geocoder(getApplicationContext(), Locale.getDefault());
-                try {
-                    addresses = geocoder.getFromLocation(latLng.latitude, latLng.longitude, NUMBER_OF_ADDRESSES);
-                } catch (IOException ioException) {
-                    errorMessage = "Service Not Available";
-                    Log.e(LOGTAG, errorMessage, ioException);
-                } catch (IllegalArgumentException illegalArgumentException) {
-                    errorMessage = "Invalid Latitude or Longitude Used";
-                    Log.e(LOGTAG, errorMessage + ". " +
-                            "Latitude = " + latLng.latitude + ", Longitude = " +
-                            latLng.longitude, illegalArgumentException);
-                }
-            }
-            if (addresses != null && addresses.size() > 0) {
-                for (Address address : addresses) {
-                    stringAddresses.add(address.getAddressLine(0));
-                }
-            }
-            return stringAddresses;
-        }
-
-        @Override
-        protected void onPostExecute(List<String> stringAddresses) {
-
-            if (stringAddresses.size() > 0) {
-                ArrayAdapter<String> autoCompleteTextViewAdapter = new ArrayAdapter<>(MapsActivity.this, android.R.layout.simple_dropdown_item_1line, stringAddresses);
-                autoCompleteTextViewAdapter.setNotifyOnChange(true);
-                autoCompleteTextViewAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-                originAutoComplete.setAdapter(autoCompleteTextViewAdapter);
-                originAutoComplete.setThreshold(MINIMUM_DROPDOWN_THRESHOLD);
-                autoCompleteTextViewAdapter.notifyDataSetChanged();
-            }
-        }
     }
 
 
@@ -379,13 +307,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
     }
 
-    /**
-     * Displays a dialog with error message explaining that the location permission is missing.
-     */
+
     private void showMissingPermissionError() {
         PermissionUtils.PermissionDeniedDialog
                 .newInstance(true).show(getSupportFragmentManager(), "dialog");
     }
-    /** END MAP/LOCATION RELATED CODE **/
-
 }
