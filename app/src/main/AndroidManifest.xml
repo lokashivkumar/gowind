@@ -19,7 +19,8 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar">
-        <activity android:name=".MapsActivity">
+        <!--<activity android:name=".MapsActivity"> -->
+        <activity android:name=".MapLauncherActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -37,6 +38,11 @@
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyD2iT49Ns5dRnrpfpk0Lhlj9zeAJZg66fk" />
+
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyD2iT49Ns5dRnrpfpk0Lhlj9zeAJZg66fk"/>
+
         <meta-data
             android:name="io.fabric.ApiKey"
             android:value="6be690330ebd07ce04f235b4ca3e558cde2557de" />
@@ -45,15 +51,22 @@
         <activity
             android:name=".LoginActivity"
             android:label="@string/title_activity_login"
-            android:parentActivityName=".MapsActivity"/>
-
-
-        <activity android:name=".PaymentActivity"
-            android:parentActivityName=".LoginActivity"></activity>
+            android:parentActivityName=".MapsActivity" />
+        <activity
+            android:name=".PaymentActivity"
+            android:parentActivityName=".LoginActivity" />
 
         <service
             android:name=".services.FetchAddressService"
-            android:exported="false"/>
+            android:exported="false" />
+
+        <activity android:name=".MapLauncherActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>
