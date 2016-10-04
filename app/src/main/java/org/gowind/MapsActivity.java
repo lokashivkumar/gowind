@@ -1,10 +1,14 @@
 package org.gowind;
 
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.location.Geocoder;
+import android.location.Location;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
@@ -15,6 +19,7 @@ import android.widget.Toast;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.Status;
+import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.places.AutocompleteFilter;
@@ -27,37 +32,47 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.PolylineOptions;
 
 import org.gowind.api.UserLocation;
+import org.gowind.util.PermissionUtils;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
 
-public class MapLauncherActivity extends AppCompatActivity implements
-        GoogleApiClient.OnConnectionFailedListener,
-        GoogleApiClient.ConnectionCallbacks, OnMapReadyCallback {
+public class MapsActivity extends AppCompatActivity implements GoogleApiClient.OnConnectionFailedListener,
+        GoogleApiClient.ConnectionCallbacks,
+        LocationListener,
+        GoogleMap.OnMyLocationButtonClickListener,
+        OnMapReadyCallback {
 
-    @BindView(R.id.requestButton) Button requestButton;
-    @BindView(R.id.paymentsButton) ImageButton paymentsButton;
+    private GoogleMap mMap;
+    private static final int LOCATION_PERMISSION_REQUEST_CODE = 0;
+    @BindView(R.id.requestButton)
+    Button requestButton;
+    @BindView(R.id.paymentsButton)
+    ImageButton paymentsButton;
     @BindView(R.id.profileButton) ImageButton profileButton;
     @BindView(R.id.settingsButton) ImageButton settingsButton;
 
 
-    private static final String TAG = MapLauncherActivity.class.getSimpleName();
+    private static final String TAG = MapsActivity.class.getSimpleName();
     private static final int PLACE_AUTOCOMPLETE_REQUEST_CODE = 1;
     private GoogleApiClient mGoogleApiClient;
-    private GoogleMap mMap;
     private boolean isMapReady = false;
-    private Marker mMarker;
+    private Marker mOriginMarker;
+    private Marker mDestinationMarker;
     private UserLocation userLocation = new UserLocation();
     private LocationRequest mLocationRequest;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_map_launcher);
+        setContentView(R.layout.activity_maps);
         ButterKnife.bind(this);
 
         if (mGoogleApiClient == null) {
@@ -88,7 +103,7 @@ public class MapLauncherActivity extends AppCompatActivity implements
         profileButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent profileIntent = new Intent(MapLauncherActivity.this, UserProfileActivity.class);
+                Intent profileIntent = new Intent(MapsActivity.this, UserProfileActivity.class);
                 startActivity(profileIntent);
             }
         });
@@ -96,7 +111,7 @@ public class MapLauncherActivity extends AppCompatActivity implements
         paymentsButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent paymentIntent = new Intent(MapLauncherActivity.this, PaymentActivity.class);
+                Intent paymentIntent = new Intent(MapsActivity.this, PaymentActivity.class);
                 startActivity(paymentIntent);
             }
         });
@@ -111,23 +126,70 @@ public class MapLauncherActivity extends AppCompatActivity implements
     }
 
 
-//    @Override
-//    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-//        if (requestCode == PLACE_AUTOCOMPLETE_REQUEST_CODE) {
-//            if (resultCode == RESULT_OK) {
-//                Place place = PlaceAutocomplete.getPlace(this, data);
-//                Log.i(TAG, "Place: " + place.getName());
-//                userLocation.setOriginLatLng(place.getLatLng());
-//            } else if (resultCode == PlaceAutocomplete.RESULT_ERROR) {
-//                Status status = PlaceAutocomplete.getStatus(this, data);
-//                // TODO: Handle the error.
-//                Log.i(TAG, status.getStatusMessage());
-//
-//            } else if (resultCode == RESULT_CANCELED) {
-//                // The user canceled the operation.
-//            }
-//        }
-//    }
+    /**
+     * Manipulates the map once available.
+     * This callback is triggered when the map is ready to be used.
+     * This is where we can add markers or lines, add listeners or move the camera. In this case,
+     * we just add a marker near Sydney, Australia.
+     * If Google Play services is not installed on the device, the user will be prompted to install
+     * it inside the SupportMapFragment. This method will only be triggered once the user has
+     * installed Google Play services and returned to the app.
+     */
+    @Override
+    public void onMapReady(GoogleMap googleMap) {
+        mMap = googleMap;
+
+        AutocompleteFilter typeFilter = new AutocompleteFilter.Builder()
+                .setTypeFilter(AutocompleteFilter.TYPE_FILTER_ADDRESS)
+                .build();
+
+        PlaceAutocompleteFragment originAutoCompleteFragment = (PlaceAutocompleteFragment)
+                getFragmentManager().findFragmentById(R.id.origin_autocomplete_fragment);
+        originAutoCompleteFragment.setFilter(typeFilter);
+
+
+        PlaceAutocompleteFragment destinationAutoCompleteFragment = (PlaceAutocompleteFragment)
+                getFragmentManager().findFragmentById(R.id.destination_autocomplete_fragment);
+        destinationAutoCompleteFragment.setFilter(typeFilter);
+
+        originAutoCompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
+            @Override
+            public void onPlaceSelected(Place place) {
+                Log.i(TAG, "Place: " + place.getName());
+                userLocation.setOriginLocation(place.getName().toString());
+                userLocation.setOriginLatLng(place.getLatLng());
+                updateOriginMarker(place.getLatLng());
+            }
+
+            @Override
+            public void onError(Status status) {
+                // TODO: Handle the error.
+                Log.i(TAG, "An error occurred: " + status);
+            }
+        });
+
+        destinationAutoCompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
+
+            @Override
+            public void onPlaceSelected(Place place) {
+                Log.i(TAG, "Place: " + place.getName());
+                userLocation.setDestinationLocation(place.getName().toString());
+                userLocation.setDestinationLatLng(place.getLatLng());
+                updateDestinationMarker(place.getLatLng());
+                mMap.addPolyline(new PolylineOptions().geodesic(true)
+                        .add(userLocation.getOriginLatLng())
+                        .add(userLocation.getDestinationLatLng())
+                        .width(6)
+                        .color(Color.BLUE));
+            }
+
+            @Override
+            public void onError(Status status) {
+                // TODO: Handle the error.
+                Log.i(TAG, "An error occurred: " + status);
+            }
+        });
+    }
 
     @Override
     protected void onStart() {
@@ -152,6 +214,23 @@ public class MapLauncherActivity extends AppCompatActivity implements
         if (!Geocoder.isPresent()) {
             Toast.makeText(this, R.string.geocoder_not_found, Toast.LENGTH_LONG).show();
         }
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            // Permission to access the location is missing.
+            PermissionUtils.requestPermission(this, LOCATION_PERMISSION_REQUEST_CODE,
+                    android.Manifest.permission.ACCESS_FINE_LOCATION, true);
+            //to get current location
+        } else if (mMap != null) {
+            // Access to the location has been granted to the app.
+            mMap.setMyLocationEnabled(true);
+        }
+        Location myCurrentLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+        if (myCurrentLocation != null) {
+            LatLng latLng = new LatLng(myCurrentLocation.getLatitude(), myCurrentLocation.getLongitude());
+            updateOriginMarker(latLng);
+        }
+        //to receive location updates upon movement.
+        LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
     }
 
     @Override
@@ -164,65 +243,38 @@ public class MapLauncherActivity extends AppCompatActivity implements
         Log.e(TAG, "Connection to Google Location Services Failed.");
     }
 
+    @Override
+    public void onLocationChanged(Location location) {
+        updateOriginMarker(new LatLng(location.getLatitude(), location.getLongitude()));
+    }
+
+    private void updateOriginMarker(LatLng latLng) {
+        if (mOriginMarker != null) {
+            mOriginMarker.remove();
+        }
+        MarkerOptions markerOptions = new MarkerOptions()
+                .position(latLng)
+                .title("Current Position");
+        mOriginMarker = mMap.addMarker(markerOptions);
+        mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+        CameraUpdate zoom = CameraUpdateFactory.zoomTo(10);
+        mMap.animateCamera(zoom);
+    }
+
+    private void updateDestinationMarker(LatLng latLng) {
+        if (mDestinationMarker != null) {
+            mDestinationMarker.remove();
+        }
+        MarkerOptions markerOptions = new MarkerOptions()
+                .position(latLng)
+                .title("Destination Position")
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN));
+        mDestinationMarker = mMap.addMarker(markerOptions);
+    }
 
     @Override
-    public void onMapReady(GoogleMap googleMap) {
-        mMap = googleMap;
-
-        AutocompleteFilter typeFilter = new AutocompleteFilter.Builder()
-                .setTypeFilter(AutocompleteFilter.TYPE_FILTER_ADDRESS)
-                .build();
-
-        PlaceAutocompleteFragment originAutoCompleteFragment = (PlaceAutocompleteFragment)
-                getFragmentManager().findFragmentById(R.id.origin_autocomplete_fragment);
-        originAutoCompleteFragment.setFilter(typeFilter);
-
-
-        PlaceAutocompleteFragment destinationAutoCompleteFragment = (PlaceAutocompleteFragment)
-                getFragmentManager().findFragmentById(R.id.destination_autocomplete_fragment);
-        destinationAutoCompleteFragment.setFilter(typeFilter);
-
-        originAutoCompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
-            @Override
-            public void onPlaceSelected(Place place) {
-                Log.i(TAG, "Place: " + place.getName());
-                userLocation.setOriginLocation(place.getName().toString());
-                userLocation.setOriginLatLng(place.getLatLng());
-
-                MarkerOptions markerOptions = new MarkerOptions()
-                        .position(place.getLatLng())
-                        .title("Current Position");
-
-                mMarker = mMap.addMarker(markerOptions);
-                mMap.moveCamera(CameraUpdateFactory.newLatLng(place.getLatLng()));
-                CameraUpdate zoom = CameraUpdateFactory.zoomTo(10);
-                mMap.animateCamera(zoom);
-            }
-
-            @Override
-            public void onError(Status status) {
-                // TODO: Handle the error.
-                Log.i(TAG, "An error occurred: " + status);
-            }
-        });
-
-        destinationAutoCompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
-
-            @Override
-            public void onPlaceSelected(Place place) {
-                Toast.makeText(MapLauncherActivity.this, userLocation.getOriginLocation() + " : " +
-                        userLocation.getOriginLatLng().latitude + " " +
-                        userLocation.getOriginLatLng().longitude, Toast.LENGTH_LONG).show();
-                Log.i(TAG, "Place: " + place.getName());
-                userLocation.setDestinationLocation(place.getName().toString());
-                userLocation.setDestinationLatLng(place.getLatLng());
-            }
-
-            @Override
-            public void onError(Status status) {
-                // TODO: Handle the error.
-                Log.i(TAG, "An error occurred: " + status);
-            }
-        });
+    public boolean onMyLocationButtonClick() {
+        mMap.setMyLocationEnabled(true);
+        return false;
     }
 }
