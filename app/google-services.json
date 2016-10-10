@@ -1,0 +1,42 @@
+{
+  "project_info": {
+    "project_number": "976944161756",
+    "firebase_url": "https://gowind-143622.firebaseio.com",
+    "project_id": "gowind-143622",
+    "storage_bucket": "gowind-143622.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:976944161756:android:74326a74b5066817",
+        "android_client_info": {
+          "package_name": "org.gowind"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "976944161756-ef6tlmml3ue8nghlueijo4ii1olt7ngc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAKmzyV-eMWvXTjtdTPNhgZWFBGHX5Vi9g"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 1,
+          "other_platform_oauth_client": []
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

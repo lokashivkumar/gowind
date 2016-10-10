@@ -1,4 +1,4 @@
-package org.gowind.api;
+package org.gowind.model;
 
 import com.google.android.gms.maps.model.LatLng;
 

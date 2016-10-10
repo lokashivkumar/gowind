@@ -38,6 +38,7 @@ captures/
 .idea/*
 
 # Keystore files
+app/src/main/res/values/google_maps_api.xml
 *.jks
 app/libs/
 app/src/main/res/drawable/

@@ -1,5 +1,6 @@
 package org.gowind;
 
+import android.app.ProgressDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -8,12 +9,14 @@ import android.location.Location;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.design.widget.Snackbar;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -36,10 +39,17 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 
-import org.gowind.api.UserLocation;
+import org.gowind.model.Route;
+import org.gowind.model.UserLocation;
+import org.gowind.util.DirectionFinderListener;
+import org.gowind.util.DirectionUtil;
 import org.gowind.util.PermissionUtils;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -47,27 +57,24 @@ import butterknife.ButterKnife;
 public class MapsActivity extends AppCompatActivity implements GoogleApiClient.OnConnectionFailedListener,
         GoogleApiClient.ConnectionCallbacks,
         LocationListener,
-        GoogleMap.OnMyLocationButtonClickListener,
-        OnMapReadyCallback {
+        OnMapReadyCallback, DirectionFinderListener {
+
+    @BindView(R.id.requestButton) Button requestButton;
+    @BindView(R.id.paymentsButton) ImageButton paymentsButton;
+    @BindView(R.id.profileButton) ImageButton profileButton;
+    @BindView(R.id.settingsButton) ImageButton settingsButton;
+    @BindView(R.id.activity_map_launcher) LinearLayout mapsLinearLayout;
 
     private GoogleMap mMap;
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 0;
-    @BindView(R.id.requestButton)
-    Button requestButton;
-    @BindView(R.id.paymentsButton)
-    ImageButton paymentsButton;
-    @BindView(R.id.profileButton) ImageButton profileButton;
-    @BindView(R.id.settingsButton) ImageButton settingsButton;
-
-
+    private ProgressDialog progressDialog;
     private static final String TAG = MapsActivity.class.getSimpleName();
-    private static final int PLACE_AUTOCOMPLETE_REQUEST_CODE = 1;
     private GoogleApiClient mGoogleApiClient;
-    private boolean isMapReady = false;
     private Marker mOriginMarker;
     private Marker mDestinationMarker;
     private UserLocation userLocation = new UserLocation();
     private LocationRequest mLocationRequest;
+    private List<Polyline> polylinePaths = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -92,11 +99,20 @@ public class MapsActivity extends AppCompatActivity implements GoogleApiClient.O
     }
 
     private void setUpViewListeners() {
-
         requestButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Toast.makeText(getApplicationContext(), "Your request has been created.", Toast.LENGTH_LONG).show();
+                if (userLocation.getOriginLatLng() == null
+                        && userLocation.getDestinationLatLng() == null) {
+                    Snackbar.make(mapsLinearLayout, "Please ensure that the destination and origin addresses are selected.",
+                            Snackbar.LENGTH_LONG);
+                }
+                else {
+                    DirectionUtil directionUtil = new DirectionUtil(MapsActivity.this,
+                            userLocation.getOriginLatLng(), userLocation.getDestinationLatLng());
+                    directionUtil.getDirections();
+                }
             }
         });
 
@@ -119,12 +135,11 @@ public class MapsActivity extends AppCompatActivity implements GoogleApiClient.O
         settingsButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                //Intent userSettingsIntent = new Intent(MapsActivity.this, UserProfileActivity.class);
+                //Intent userSettingsIntent = new Intent(MapsActivity.this, SettingsActivity.class);
                 //TODO : Create settings activity and pass intent
             }
         });
     }
-
 
     /**
      * Manipulates the map once available.
@@ -138,7 +153,8 @@ public class MapsActivity extends AppCompatActivity implements GoogleApiClient.O
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
-
+        mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+        mMap.setMyLocationEnabled(true);
         AutocompleteFilter typeFilter = new AutocompleteFilter.Builder()
                 .setTypeFilter(AutocompleteFilter.TYPE_FILTER_ADDRESS)
                 .build();
@@ -176,11 +192,6 @@ public class MapsActivity extends AppCompatActivity implements GoogleApiClient.O
                 userLocation.setDestinationLocation(place.getName().toString());
                 userLocation.setDestinationLatLng(place.getLatLng());
                 updateDestinationMarker(place.getLatLng());
-                mMap.addPolyline(new PolylineOptions().geodesic(true)
-                        .add(userLocation.getOriginLatLng())
-                        .add(userLocation.getDestinationLatLng())
-                        .width(6)
-                        .color(Color.BLUE));
             }
 
             @Override
@@ -273,8 +284,38 @@ public class MapsActivity extends AppCompatActivity implements GoogleApiClient.O
     }
 
     @Override
-    public boolean onMyLocationButtonClick() {
-        mMap.setMyLocationEnabled(true);
-        return false;
+    public void onDirectionFinderStart() {
+        progressDialog = ProgressDialog.show(this, "Please wait.",
+                "Finding direction..!", true);
+        if (polylinePaths != null) {
+            for (Polyline polyline: polylinePaths) {
+                polyline.remove();
+            }
+        }
+    }
+
+    @Override
+    public void onDirectionFinderSuccess(List<Route> routes) {
+        if (progressDialog != null)
+            progressDialog.dismiss();
+        polylinePaths = new ArrayList<>();
+
+        for (final Route route : routes) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(route.startLocation, 16));
+                    PolylineOptions polylineOptions = new PolylineOptions().
+                            geodesic(true).
+                            color(Color.BLUE).
+                            width(25);
+
+                    for (int i = 0; i < route.points.size(); i++)
+                        polylineOptions.add(route.points.get(i));
+
+                    polylinePaths.add(mMap.addPolyline(polylineOptions));
+                }
+            });
+        }
     }
 }
