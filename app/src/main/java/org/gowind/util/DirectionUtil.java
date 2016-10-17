@@ -36,7 +36,6 @@ public class DirectionUtil {
     private static final String DIRECTIONS_API_URL = "https://maps.googleapis.com/maps/api/directions/json";
     private static final String TAG = DirectionUtil.class.getSimpleName();
     private static final String GOOGLE_MAPS_API_KEY = "AIzaSyA3Mo2jhbVxFCG6fkuIM3DPusRj6U-2RiQ";
-    //AIzaSyDB5SHA8L8FkLnm8S52wziQp-9tl3CoRRs
     private DirectionFinderListener listener;
     private LatLng originLatLng, destinationLatLng;
 
@@ -66,7 +65,7 @@ public class DirectionUtil {
                     Log.e(TAG, "Could not create directions request");
                 }
                 String responseData = response.body().string();
-                Log.i(TAG +"**********", responseData);
+                Log.i(TAG +" responseData", responseData);
                 try {
                     parseDirectionResponse(responseData);
                 } catch (JSONException e) {

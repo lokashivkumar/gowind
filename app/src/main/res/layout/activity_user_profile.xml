@@ -50,7 +50,6 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:inputType="textPersonName"
                 android:text="@string/sample_username"
                 android:ems="10"
                 android:maxLines="1"
@@ -106,12 +105,43 @@
                     android:paddingBottom="5dp" />
             </LinearLayout>
 
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@+id/userEmailBlock"
+                android:id="@+id/userRatingBlock"
+                android:orientation="horizontal"
+                android:paddingLeft="15dp"
+                android:paddingTop="5dp"
+                android:paddingBottom="5dp"
+                android:paddingRight="15dp">
+
+                <ImageView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/email_icon"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="5dp"
+                    />
+
+                <EditText
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:maxLines="1"
+                    android:textColor="#666"
+                    android:textSize="16dp"
+                    android:id="@+id/rating"
+                    android:paddingLeft="5dp"
+                    android:paddingTop="5dp"
+                    android:paddingRight="5dp"
+                    android:paddingBottom="5dp" />
+            </LinearLayout>
 
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:id="@+id/phoneNumberBlock"
-                android:layout_below="@+id/userEmailBlock"
+                android:layout_below="@+id/userRatingBlock"
                 android:orientation="horizontal"
                 android:paddingLeft="15dp"
                 android:paddingTop="5dp"

@@ -50,12 +50,13 @@
         android:layout_weight="1"
         android:orientation="horizontal"
         android:layout_below="@+id/requestButton"
+        android:weightSum="4"
         android:id="@+id/buttonPanel">
 
         <ImageButton
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:src="@drawable/person_black"
+            android:src="@drawable/ic_user_male"
             android:layout_gravity="center"
             android:layout_weight="1"
             android:background="@android:drawable/screen_background_light_transparent"
@@ -65,7 +66,7 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_gravity="center"
-            android:src="@drawable/ic_attach_money_black"
+            android:src="@drawable/ic_bank_note"
             android:layout_weight="1"
             android:background="@android:drawable/screen_background_light_transparent"
             android:id="@+id/paymentsButton" />
@@ -74,10 +75,19 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_gravity="center"
-            android:src="@drawable/ic_settings_black"
+            android:src="@drawable/ic_settings_1"
             android:layout_weight="1"
             android:background="@android:drawable/screen_background_light_transparent"
             android:id="@+id/settingsButton" />
+
+        <ImageButton
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_file_new_2"
+            android:layout_weight="1"
+            android:background="@android:drawable/screen_background_light_transparent"
+            android:id="@+id/saveTripButton" />
     </LinearLayout>
 
 </LinearLayout>
