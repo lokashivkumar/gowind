@@ -34,12 +34,90 @@
         tools:context="org.gowind.MapsActivity"
         android:layout_weight="10"/>
 
+    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:orientation="horizontal"
+        android:id="@+id/rideDetailPanel"
+        android:visibility="gone"
+        android:weightSum="7">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:id="@+id/fareEstimateContainer"
+            android:layout_margin="5dp"
+            android:layout_weight="2">
+            <!--android:layout_alignParentStart="true"-->
+
+
+            <TextView
+                android:text="Fare Estimate"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="top"
+                android:id="@+id/fareEstimateTextLabel"/>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@android:color/holo_blue_light"
+                android:id="@+id/horizontalSpacerBar"/>
+
+            <TextView
+                android:text="Fare Estimate"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="bottom"
+                android:id="@+id/fareEstimateValue"/>
+        </LinearLayout>
+
+        <View
+            android:layout_width="2dp"
+            android:layout_height="match_parent"
+            android:layout_centerInParent="true"
+            android:layout_toRightOf="@+id/fareEstimateContainer"
+            android:background="@android:color/holo_blue_light"
+            android:id="@+id/spacerBar"/>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_toRightOf="@+id/spacerBar"
+            android:orientation="vertical"
+            android:id="@+id/driverDetailsContainer"
+            android:layout_margin="5dp"
+            android:layout_weight="5">
+
+            <TextView
+                android:text="Driver Details"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/driverDetailsTextLabel"/>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@android:color/holo_blue_light"
+                android:id="@+id/horizontalSpaceBar1"/>
+
+            <TextView
+                android:text="Driver Details"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="bottom"
+                android:id="@+id/driverDetailsValue" />
+        </LinearLayout>
+    </LinearLayout>
+
     <Button
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:id="@+id/requestButton"
         android:text="REQUEST"
+        android:layout_below="@id/map"
         android:textSize="16sp"
         android:textAlignment="center"
         android:background="@android:drawable/screen_background_light_transparent" />
@@ -52,6 +130,7 @@
         android:layout_below="@+id/requestButton"
         android:weightSum="4"
         android:id="@+id/buttonPanel">
+        <!--android:gravity="center|bottom"-->
 
         <ImageButton
             android:layout_width="0dp"

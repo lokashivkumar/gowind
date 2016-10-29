@@ -1,5 +1,6 @@
 package org.gowind;
 
+import android.app.ActionBar;
 import android.app.ProgressDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -9,23 +10,27 @@ import android.location.Location;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.design.widget.AppBarLayout;
 import android.support.design.widget.Snackbar;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
 import android.widget.Toast;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.location.places.AutocompleteFilter;
 import com.google.android.gms.location.places.Place;
 import com.google.android.gms.location.places.Places;
 import com.google.android.gms.location.places.ui.PlaceAutocompleteFragment;
@@ -41,13 +46,12 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
-import com.google.gson.Gson;
 
 import org.gowind.model.Route;
 import org.gowind.model.User;
 import org.gowind.model.UserLocation;
+import org.gowind.util.DirectionFinder;
 import org.gowind.util.DirectionFinderListener;
-import org.gowind.util.DirectionUtil;
 import org.gowind.util.PermissionUtils;
 
 import java.io.IOException;
@@ -64,6 +68,13 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
+import static com.google.android.gms.fitness.data.Application.La;
+
+/**
+ * Launcher Activity
+ * Initializes the views and place picker for origin and dest.
+ *
+ */
 public class MapsActivity extends AppCompatActivity implements GoogleApiClient.OnConnectionFailedListener,
         GoogleApiClient.ConnectionCallbacks,
         LocationListener,
@@ -73,13 +84,17 @@ public class MapsActivity extends AppCompatActivity implements GoogleApiClient.O
     @BindView(R.id.paymentsButton) ImageButton mPaymentButton;
     @BindView(R.id.profileButton) ImageButton mProfileButton;
     @BindView(R.id.settingsButton) ImageButton mSettingsButton;
-    @BindView(R.id.activity_map_launcher) LinearLayout mapsLinearLayout;
     @BindView(R.id.saveTripButton) ImageButton mSaveTripButton;
+    @BindView(R.id.activity_map_launcher) LinearLayout mMapsLinearLayout;
+    @BindView(R.id.rideDetailPanel) LinearLayout mRideDetailPanel;
+
+    private static final int LOCATION_PERMISSION_REQUEST_CODE = 0;
+    private static final String TAG = MapsActivity.class.getSimpleName();
+    private static final String ORIGIN_HINT_STRING = "Your Address";
+    private static final String DESTINATION_HINT_STRING = "Destination Address";
 
     private GoogleMap mMap;
-    private static final int LOCATION_PERMISSION_REQUEST_CODE = 0;
     private ProgressDialog progressDialog;
-    private static final String TAG = MapsActivity.class.getSimpleName();
     private GoogleApiClient mGoogleApiClient;
     private Marker mOriginMarker;
     private Marker mDestinationMarker;
@@ -87,7 +102,6 @@ public class MapsActivity extends AppCompatActivity implements GoogleApiClient.O
     private LocationRequest mLocationRequest;
     private List<Polyline> mPolylinePaths = new ArrayList<>();
     private User mUser;
-    private final Gson gson = new Gson();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -116,15 +130,17 @@ public class MapsActivity extends AppCompatActivity implements GoogleApiClient.O
             @Override
             public void onClick(View v) {
                 Toast.makeText(getApplicationContext(), "Your request has been created.", Toast.LENGTH_LONG).show();
+                showRideDetailsPanel();
                 if (mUserLocation.getOriginLatLng() == null
                         && mUserLocation.getDestinationLatLng() == null) {
-                    Snackbar.make(mapsLinearLayout, "Please ensure that the destination and origin addresses are selected.",
+                    Snackbar.make(mMapsLinearLayout, "Please ensure that the destination and origin addresses are selected.",
                             Snackbar.LENGTH_LONG);
                 }
                 else {
-                    DirectionUtil directionUtil = new DirectionUtil(MapsActivity.this,
+                    DirectionFinder directionUtil = new DirectionFinder(MapsActivity.this,
                             mUserLocation.getOriginLatLng(), mUserLocation.getDestinationLatLng());
                     directionUtil.getDirections();
+                    //TODO : Have to make this visible only if the data is available from the server.
                 }
             }
         });
@@ -166,7 +182,8 @@ public class MapsActivity extends AppCompatActivity implements GoogleApiClient.O
                             }
                             String responseString = response.body().string();
                             Log.i(TAG + " response: ", responseString);
-                            mUser = gson.fromJson(responseString, User.class);
+                            ObjectMapper objectMapper = new ObjectMapper();
+                            mUser = objectMapper.readValue(responseString, User.class);
                         }
                     }
                 });
@@ -207,6 +224,12 @@ public class MapsActivity extends AppCompatActivity implements GoogleApiClient.O
         });
     }
 
+    private void showRideDetailsPanel() {
+        String foo = "foo";
+        Log.i(TAG, foo);
+        mRideDetailPanel.setVisibility(View.VISIBLE);
+    }
+
     /**
      * Manipulates the map once available.
      * This callback is triggered when the map is ready to be used.
@@ -221,17 +244,14 @@ public class MapsActivity extends AppCompatActivity implements GoogleApiClient.O
         mMap = googleMap;
         mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
         mMap.setMyLocationEnabled(true);
-        AutocompleteFilter typeFilter = new AutocompleteFilter.Builder()
-                .setTypeFilter(AutocompleteFilter.TYPE_FILTER_ADDRESS)
-                .build();
 
         PlaceAutocompleteFragment originAutoCompleteFragment = (PlaceAutocompleteFragment)
                 getFragmentManager().findFragmentById(R.id.origin_autocomplete_fragment);
-        originAutoCompleteFragment.setFilter(typeFilter);
+        originAutoCompleteFragment.setHint(ORIGIN_HINT_STRING);
 
         PlaceAutocompleteFragment destinationAutoCompleteFragment = (PlaceAutocompleteFragment)
                 getFragmentManager().findFragmentById(R.id.destination_autocomplete_fragment);
-        destinationAutoCompleteFragment.setFilter(typeFilter);
+        destinationAutoCompleteFragment.setHint(DESTINATION_HINT_STRING);
 
         originAutoCompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override

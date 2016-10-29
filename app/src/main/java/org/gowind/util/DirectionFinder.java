@@ -29,17 +29,22 @@ import okhttp3.Response;
 
 /**
  * Created by shiv.loka on 10/4/16.
+ * Requires the origin and destination latlng.
+ * This gets the polypoints to construct the polyline. - decodePolyLine
+ * Parser parses the direction response in to the Route. - parseDirectionResponse
+ * Creates the URL for directions API - createDirectionsURL
  */
-
-public class DirectionUtil {
+public class DirectionFinder {
 
     private static final String DIRECTIONS_API_URL = "https://maps.googleapis.com/maps/api/directions/json";
-    private static final String TAG = DirectionUtil.class.getSimpleName();
+    private static final String TAG = DirectionFinder.class.getSimpleName();
     private static final String GOOGLE_MAPS_API_KEY = "AIzaSyA3Mo2jhbVxFCG6fkuIM3DPusRj6U-2RiQ";
     private DirectionFinderListener listener;
     private LatLng originLatLng, destinationLatLng;
+    private static Ride ride;
 
-    public DirectionUtil(DirectionFinderListener listener, LatLng origin, LatLng destination) {
+
+    public DirectionFinder(DirectionFinderListener listener, LatLng origin, LatLng destination) {
         this.listener = listener;
         this.originLatLng = origin;
         this.destinationLatLng = destination;
@@ -80,7 +85,7 @@ public class DirectionUtil {
         List<Route> rideRouteList = new ArrayList<>();
         JSONObject jsonData = new JSONObject(directionsResponseData);
         JSONArray jsonRoutes = jsonData.getJSONArray("routes");
-        Ride ride = new Ride();
+        this.ride = new Ride();
         for (int i = 0; i < jsonRoutes.length(); i++) {
             JSONObject jsonRoute = jsonRoutes.getJSONObject(i);
             Route route = new Route();
@@ -108,6 +113,11 @@ public class DirectionUtil {
         ride.setRideStatus(RideStatus.AWAITING_PICKUP);
         ride.setDynamicPricing(true);
         listener.onDirectionFinderSuccess(rideRouteList);
+    }
+
+    public static Ride getRide() {
+        //TODO : Get ride given a ride id.
+        return ride;
     }
 
     /**
