@@ -1,5 +1,6 @@
 package org.gowind.util;
 
+import android.preference.PreferenceManager;
 import android.util.Log;
 
 import com.google.android.gms.maps.model.LatLng;
@@ -43,7 +44,6 @@ public class DirectionFinder {
     private LatLng originLatLng, destinationLatLng;
     private static Ride ride;
 
-
     public DirectionFinder(DirectionFinderListener listener, LatLng origin, LatLng destination) {
         this.listener = listener;
         this.originLatLng = origin;
@@ -64,8 +64,6 @@ public class DirectionFinder {
 
             @Override
             public void onResponse(Call call, final Response response) throws IOException {
-                //TODO: PARSE JSON DATA upon response and update the directions request object.
-                //TODO: Run on UI Thread - draw the map between point A and Point B based upon Directions Request POJO.
                 if (!response.isSuccessful()) {
                     Log.e(TAG, "Could not create directions request");
                 }
@@ -107,17 +105,13 @@ public class DirectionFinder {
             route.points = decodePolyLine(overview_polylineJson.getString("points"));
 
             rideRouteList.add(route);
+            Log.i(TAG, "Hello" + rideRouteList.get(0).distance + rideRouteList.get(0).duration);
         }
         ride.setRoute(rideRouteList);
         ride.setBookingTime(new Date());
         ride.setRideStatus(RideStatus.AWAITING_PICKUP);
         ride.setDynamicPricing(true);
         listener.onDirectionFinderSuccess(rideRouteList);
-    }
-
-    public static Ride getRide() {
-        //TODO : Get ride given a ride id.
-        return ride;
     }
 
     /**

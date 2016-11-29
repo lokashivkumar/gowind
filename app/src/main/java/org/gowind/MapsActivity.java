@@ -1,7 +1,9 @@
 package org.gowind;
 
 import android.app.ActionBar;
+import android.app.KeyguardManager;
 import android.app.ProgressDialog;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -22,6 +24,7 @@ import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -57,6 +60,7 @@ import org.gowind.util.PermissionUtils;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -64,8 +68,10 @@ import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.Headers;
 import okhttp3.HttpUrl;
+import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.RequestBody;
 import okhttp3.Response;
 
 import static com.google.android.gms.fitness.data.Application.La;
@@ -73,6 +79,7 @@ import static com.google.android.gms.fitness.data.Application.La;
 /**
  * Launcher Activity
  * Initializes the views and place picker for origin and dest.
+ * Connects to location listener, google services, initializes direction api, map and ui components.
  *
  */
 public class MapsActivity extends AppCompatActivity implements GoogleApiClient.OnConnectionFailedListener,
@@ -99,16 +106,24 @@ public class MapsActivity extends AppCompatActivity implements GoogleApiClient.O
     private Marker mOriginMarker;
     private Marker mDestinationMarker;
     private UserLocation mUserLocation = new UserLocation();
-    private LocationRequest mLocationRequest;
     private List<Polyline> mPolylinePaths = new ArrayList<>();
-    private User mUser;
+
+    //User Authentication variables.
+    private KeyguardManager mKeyguardManager;
+    private boolean isUserAuthenticated;
+    private static final int REQUEST_CODE_CONFIRM_DEVICE_CREDENTIALS = 1;
+    /**
+     * If the user has unlocked the device Within the last this number of seconds,
+     * it can be considered as an authenticator.
+     */
+    private static final int AUTHENTICATION_DURATION_SECONDS = 30;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
         ButterKnife.bind(this);
-
+        mKeyguardManager = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
         if (mGoogleApiClient == null) {
             mGoogleApiClient = new GoogleApiClient.Builder(this)
                     .addConnectionCallbacks(this)
@@ -122,10 +137,26 @@ public class MapsActivity extends AppCompatActivity implements GoogleApiClient.O
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
+        authenticateUser();
         setUpViewListeners();
     }
 
+    private void authenticateUser() {
+        Intent intent = mKeyguardManager.createConfirmDeviceCredentialIntent(null, null);
+        if (intent != null) {
+            startActivityForResult(intent, REQUEST_CODE_CONFIRM_DEVICE_CREDENTIALS);
+        }
+    }
+
     private void setUpViewListeners() {
+        /**
+         * Some dummy data
+         */
+        final User dummyUser = new User();
+        dummyUser.setName("dummyUser");
+        dummyUser.setEmail("dummyUser@gmail.com");
+        dummyUser.setPhoneNumber("408-777-7777");
+
         mRequestButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -137,10 +168,49 @@ public class MapsActivity extends AppCompatActivity implements GoogleApiClient.O
                             Snackbar.LENGTH_LONG);
                 }
                 else {
-                    DirectionFinder directionUtil = new DirectionFinder(MapsActivity.this,
+                    DirectionFinder directionFinder = new DirectionFinder(MapsActivity.this,
                             mUserLocation.getOriginLatLng(), mUserLocation.getDestinationLatLng());
-                    directionUtil.getDirections();
-                    //TODO : Have to make this visible only if the data is available from the server.
+                    directionFinder.getDirections();
+
+                    OkHttpClient userProfileClient = new OkHttpClient();
+                    HttpUrl userProfileUrl = new HttpUrl.Builder()
+                            .scheme("http")
+                            .host("10.0.2.2")
+                            .port(9200)
+                            .addPathSegment("fare")
+                            .addPathSegment("estimate")
+                            .addQueryParameter("distance", String.valueOf(12))
+                            .addQueryParameter("duration", String.valueOf(15))
+                            .build();
+                    Log.i(TAG, String.valueOf(userProfileUrl));
+                    Request userProfileRequest = new Request.Builder()
+                            .url(userProfileUrl)
+                            .build();
+
+                    Log.i(TAG + " url is: ", userProfileUrl.toString());
+                    userProfileClient.newCall(userProfileRequest).enqueue(new Callback() {
+                        @Override
+                        public void onFailure(Call call, IOException e) {
+                            Log.i(TAG, "Could not get fare estimate");
+                        }
+
+                        @Override
+                        public void onResponse(Call call, Response response) throws IOException {
+                            if (!response.isSuccessful()) {
+                                throw new IOException("Unexpected error " + response);
+                            } else {
+                                final String responseString = response.body().string();
+                                Log.i(TAG + " response: ", responseString);
+                                runOnUiThread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        TextView fareEstimate = (TextView) findViewById(R.id.fareEstimateValue);
+                                        fareEstimate.setText(responseString);
+                                    }
+                                });
+                            }
+                        }
+                    });
                 }
             }
         });
@@ -150,53 +220,57 @@ public class MapsActivity extends AppCompatActivity implements GoogleApiClient.O
             public void onClick(View v) {
                 Intent profileIntent = new Intent(MapsActivity.this, UserProfileActivity.class);
 
-                OkHttpClient userProfileClient = new OkHttpClient();
-                HttpUrl userProfileUrl = new HttpUrl.Builder()
-                        .scheme("http")
-                        .host("10.0.2.2")
-                        .port(9200)
-                        .addPathSegment("user")
-                        .addPathSegment("getuser")
-                        .addQueryParameter("username", "mUser")
-                        .build();
-                //String userProfileUrl = GOWIND_SERVICES_URL + "/test";
-                Request userProfileRequest = new Request.Builder()
-                        .url(userProfileUrl)
-                        .build();
+                profileIntent.putExtra("user", dummyUser);
+                startActivity(profileIntent);
 
-                Log.i(TAG + " url is: ", userProfileUrl.toString());
-                userProfileClient.newCall(userProfileRequest).enqueue(new Callback() {
-                    @Override
-                    public void onFailure(Call call, IOException e) {
-                        Log.i(TAG, "User not found");
-                    }
-
-                    @Override
-                    public void onResponse(Call call, Response response) throws IOException {
-                        if (!response.isSuccessful()) {
-                            throw new IOException("Unexpected error " + response);
-                        } else {
-                            Headers responseHeaders = response.headers();
-                            for (int i = 0; i < responseHeaders.size(); i++) {
-                                Log.i(TAG, responseHeaders.name(i) + " :" + responseHeaders.value(i));
-                            }
-                            String responseString = response.body().string();
-                            Log.i(TAG + " response: ", responseString);
-                            ObjectMapper objectMapper = new ObjectMapper();
-                            mUser = objectMapper.readValue(responseString, User.class);
-                        }
-                    }
-                });
-                if (mUser != null) {
-                    profileIntent.putExtra("user", mUser);
-                    startActivity(profileIntent);
-                } else {
-                    try {
-                        throw new IOException("Unable to start User Profile activity as there was an error fetching user data");
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
+                //TODO : Load user profile from sqllite database.
+//                OkHttpClient userProfileClient = new OkHttpClient();
+//                HttpUrl userProfileUrl = new HttpUrl.Builder()
+//                        .scheme("http")
+//                        .host("10.0.2.2")
+//                        .port(9200)
+//                        .addPathSegment("user")
+//                        .addPathSegment("getuser")
+//                        .addQueryParameter("username", "mUser")
+//                        .build();
+//                //String userProfileUrl = GOWIND_SERVICES_URL + "/test";
+//                Request userProfileRequest = new Request.Builder()
+//                        .url(userProfileUrl)
+//                        .build();
+//
+//                Log.i(TAG + " url is: ", userProfileUrl.toString());
+//                userProfileClient.newCall(userProfileRequest).enqueue(new Callback() {
+//                    @Override
+//                    public void onFailure(Call call, IOException e) {
+//                        Log.i(TAG, "User not found");
+//                    }
+//
+//                    @Override
+//                    public void onResponse(Call call, Response response) throws IOException {
+//                        if (!response.isSuccessful()) {
+//                            throw new IOException("Unexpected error " + response);
+//                        } else {
+//                            Headers responseHeaders = response.headers();
+//                            for (int i = 0; i < responseHeaders.size(); i++) {
+//                                Log.i(TAG, responseHeaders.name(i) + " :" + responseHeaders.value(i));
+//                            }
+//                            String responseString = response.body().string();
+//                            Log.i(TAG + " response: ", responseString);
+//                            ObjectMapper objectMapper = new ObjectMapper();
+//                            mUser = objectMapper.readValue(responseString, User.class);
+//                        }
+//                    }
+//                });
+//                if (mUser != null) {
+//                    profileIntent.putExtra("user", mUser);
+//                    startActivity(profileIntent);
+//                } else {
+//                    try {
+//                        throw new IOException("Unable to start User Profile activity as there was an error fetching user data");
+//                    } catch (IOException e) {
+//                        e.printStackTrace();
+//                    }
+//                }
             }
         });
 
@@ -225,8 +299,6 @@ public class MapsActivity extends AppCompatActivity implements GoogleApiClient.O
     }
 
     private void showRideDetailsPanel() {
-        String foo = "foo";
-        Log.i(TAG, foo);
         mRideDetailPanel.setVisibility(View.VISIBLE);
     }
 
@@ -302,7 +374,7 @@ public class MapsActivity extends AppCompatActivity implements GoogleApiClient.O
     @Override
     public void onConnected(@Nullable Bundle bundle) {
         Log.i(TAG, "Connected to google location services.");
-        mLocationRequest = LocationRequest.create()
+        LocationRequest mLocationRequest = LocationRequest.create()
                 .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
                 .setInterval(10000)
                 .setFastestInterval(5000);
@@ -401,7 +473,6 @@ public class MapsActivity extends AppCompatActivity implements GoogleApiClient.O
 
                     for (int i = 0; i < route.points.size(); i++)
                         polylineOptions.add(route.points.get(i));
-
                     mPolylinePaths.add(mMap.addPolyline(polylineOptions));
                 }
             });

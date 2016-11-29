@@ -12,6 +12,7 @@ public class User implements Parcelable {
     private String phoneNumber;
     private int rating;
     private String email;
+    private Ride ride;
 
     public User(Parcel in) {
         name = in.readString();
@@ -34,6 +35,14 @@ public class User implements Parcelable {
 
     public User() {
 
+    }
+
+    public Ride getRide() {
+        return ride;
+    }
+
+    public void setRide(Ride ride) {
+        this.ride = ride;
     }
 
     public String getEmail() {
@@ -62,10 +71,6 @@ public class User implements Parcelable {
 
     public String getRating() {
         return String.valueOf(rating);
-    }
-
-    public void setRating(String rating) {
-        this.rating = Integer.parseInt(rating);
     }
 
     @Override

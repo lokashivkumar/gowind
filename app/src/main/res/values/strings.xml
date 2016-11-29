@@ -47,4 +47,5 @@
     <string name="address_found">Found the address.</string>
     <string name="geocoder_not_found">Geocoder service is currently unavailable.</string>
     <string name="address_not_set">Please ensure that the to and from addresses are selected.</string>
+    <string name="fare_estimate_label">Fare Estimate</string>
 </resources>

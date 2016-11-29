@@ -9,6 +9,7 @@ import java.util.UUID;
  */
 
 public class Ride {
+
     private UUID rideId;
     private int partySize;
     private boolean dynamicPricing;

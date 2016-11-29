@@ -5,4 +5,5 @@ package org.gowind.model;
  */
 
 public class RideRequest {
+
 }
